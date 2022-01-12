@@ -29,7 +29,9 @@ module "runners" {
 
   runner_extra_labels = "default,example"
 
-  runner_os = var.runner_os
+  runner_os      = var.runner_os
+  runner_run_as  = var.runner_run_as
+  instance_types = var.instance_types
 
   # configure your pre-built AMI
   enabled_userdata = false
