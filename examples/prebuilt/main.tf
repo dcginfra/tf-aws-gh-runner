@@ -29,6 +29,12 @@ module "runners" {
 
   runner_extra_labels = "default,example"
 
+  block_device_mappings = {
+    # Set the block device name for Ubuntu root device
+    device_name = "/dev/sda1"
+    volume_size = 20
+  }
+
   runner_os      = var.runner_os
   runner_run_as  = var.runner_run_as
   instance_types = var.instance_types
