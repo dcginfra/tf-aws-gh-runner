@@ -21,7 +21,7 @@ variable "region" {
 
 source "amazon-ebs" "githubrunner" {
   ami_name      = "github-runner-ubuntu-x86_64-${formatdate("YYYYMMDDhhmm", timestamp())}"
-  instance_type = "m3.medium"
+  instance_type = "c5a.4xlarge"
   region        = var.region
   source_ami_filter {
     filters = {
