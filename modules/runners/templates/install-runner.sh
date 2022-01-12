@@ -12,7 +12,7 @@ fi
 file_name="actions-runner.tar.gz"
 
 echo "Creating actions-runner directory for the GH Action installtion"
-cd /opt/
+cd ~
 mkdir actions-runner && cd actions-runner
 
 if [[ -n "$RUNNER_TARBALL_URL" ]]; then
@@ -39,7 +39,7 @@ ${ARM_PATCH}
 os_id=$(awk -F= '/^ID/{print $2}' /etc/os-release)
 if [[ "$os_id" =~ ^ubuntu.* ]]; then
     echo "Installing dependencies"
-    ./bin/installdependencies.sh
+    sudo ./bin/installdependencies.sh
 fi
 
 echo "Set file ownership of action runner"
