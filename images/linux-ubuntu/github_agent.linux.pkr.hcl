@@ -10,7 +10,7 @@ packer {
 variable "action_runner_url" {
   description = "The URL to the tarball of the action runner"
   type        = string
-  default     = "https://github.com/actions/runner/releases/download/v2.286.0/actions-runner-linux-x64-2.286.0.tar.gz"
+  default     = "https://github.com/actions/runner/releases/download/v2.286.1/actions-runner-linux-x64-2.286.1.tar.gz"
 }
 
 variable "region" {
