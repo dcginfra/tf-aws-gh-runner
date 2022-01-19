@@ -67,7 +67,7 @@ build {
     environment_vars = [
       "RUNNER_TARBALL_URL=${var.action_runner_url}"
     ]
-    inline_shebang = "/bin/bash -ex"
+    execute_command = "{{.Vars}} sudo -E bash -eux '{{.Path}}'"
     inline = [templatefile("../install-runner.sh", {
       install_runner = templatefile("../../modules/runners/templates/install-runner.sh", {
         ARM_PATCH                       = ""
