@@ -72,6 +72,7 @@ build {
       install_runner = templatefile("../../modules/runners/templates/install-runner.sh", {
         ARM_PATCH                       = ""
         S3_LOCATION_RUNNER_DISTRIBUTION = ""
+        RUNNER_ARCHITECTURE             = "x64"
       })
     })]
   }
