@@ -1,7 +1,7 @@
 
 variable "github_app_key_base64" {
   default = <<EOF
-  # insert app key here
+insert base64 app key here
 EOF
 }
 
@@ -21,12 +21,12 @@ variable "runner_run_as" {
 
 variable "ami_name_filter" {
   type    = string
-  default = "github-runner-ubuntu-x86_64-2022*"
+  default = "github-runner-ubuntu-focal-amd64-2022*"
 }
 
 variable "aws_region" {
   type    = string
-  default = "us-west-1"
+  default = "eu-central-1"
 }
 
 variable "instance_types" {

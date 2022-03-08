@@ -10,13 +10,13 @@ packer {
 variable "runner_version" {
   description = "The version (no v prefix) of the runner software to install https://github.com/actions/runner/releases"
   type        = string
-  default     = "2.286.1"
+  default     = "2.288.1"
 }
 
 variable "region" {
   description = "The region to build the image in"
   type        = string
-  default     = "eu-west-1"
+  default     = "eu-central-1"
 }
 
 variable "security_group_id" {
@@ -34,12 +34,12 @@ variable "subnet_id" {
 variable "instance_type" {
   description = "The instance type Packer will use for the builder"
   type        = string
-  default     = "t3.medium"
+  default     = "c5a.4xlarge"
 }
 
 variable "root_volume_size_gb" {
   type    = number
-  default = 8
+  default = 20
 }
 
 variable "ebs_delete_on_termination" {
