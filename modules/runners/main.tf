@@ -12,7 +12,6 @@ locals {
   instance_profile_path = var.instance_profile_path == null ? "/${var.environment}/" : var.instance_profile_path
   lambda_zip            = var.lambda_zip == null ? "${path.module}/lambdas/runners/runners.zip" : var.lambda_zip
   userdata_template     = var.userdata_template == null ? local.default_userdata_template[var.runner_os] : var.userdata_template
-  userdata_arm_patch    = "${path.module}/templates/arm-runner-patch.tpl"
   kms_key_arn           = var.kms_key_arn != null ? var.kms_key_arn : ""
 
   default_ami = {
@@ -89,7 +88,7 @@ resource "aws_launch_template" "runner" {
   key_name                             = var.key_name
 
   vpc_security_group_ids = compact(concat(
-    [aws_security_group.runner_sg.id],
+    var.enable_managed_runner_security_group ? [aws_security_group.runner_sg[0].id] : [],
     var.runner_additional_security_group_ids,
   ))
 
@@ -119,7 +118,7 @@ resource "aws_launch_template" "runner" {
     pre_install = var.userdata_pre_install
     install_runner = templatefile(local.userdata_install_runner[var.runner_os], {
       S3_LOCATION_RUNNER_DISTRIBUTION = var.s3_location_runner_binaries
-      ARM_PATCH                       = var.runner_architecture == "arm64" ? templatefile(local.userdata_arm_patch, {}) : ""
+      RUNNER_ARCHITECTURE             = var.runner_architecture
     })
     post_install    = var.userdata_post_install
     start_runner    = templatefile(local.userdata_start_runner[var.runner_os], {})
@@ -137,6 +136,7 @@ resource "aws_launch_template" "runner" {
 }
 
 resource "aws_security_group" "runner_sg" {
+  count       = var.enable_managed_runner_security_group ? 1 : 0
   name_prefix = "${var.environment}-github-actions-runner-sg"
   description = "Github Actions Runner security group"
 

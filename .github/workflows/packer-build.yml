@@ -8,6 +8,7 @@ on:
     paths:
       - "images/**"
       - ".github/workflows/packer-build.yml"
+      - "module/runners/templates/**"
 
 env:  
   AWS_REGION: eu-west-1
@@ -20,7 +21,7 @@ jobs:
       image: hashicorp/packer:1.7.8
     strategy:
       matrix:
-        image: ["linux-amzn2", "windows-core-2019"]
+        image: ["linux-amzn2", "windows-core-2019", "ubuntu-focal"]
     defaults:
       run:
         working-directory: images/${{ matrix.image }}

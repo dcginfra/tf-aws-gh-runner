@@ -501,14 +501,20 @@ variable "enable_ephemeral_runners" {
   default     = false
 }
 
+variable "enable_managed_runner_security_group" {
+  description = "Enabling the default managed security group creation. Unmanaged security groups can be specified via `runner_additional_security_group_ids`."
+  type        = bool
+  default     = true
+}
+
 variable "runner_os" {
-  description = "The Operating System to use for GitHub Actions Runners (linux,win)"
+  description = "The EC2 Operating System type to use for action runner instances (linux,windows)."
   type        = string
   default     = "linux"
 
   validation {
     condition     = contains(["linux", "windows"], var.runner_os)
-    error_message = "Valid values for runner_os are (linux, win)."
+    error_message = "Valid values for runner_os are (linux, windows)."
   }
 }
 
@@ -578,4 +584,10 @@ variable "pool_config" {
     size                = number
   }))
   default = []
+}
+
+variable "disable_runner_autoupdate" {
+  description = "Disable the auto update of the github runner agent. Be-aware there is a grace period of 30 days, see also the [GitHub article](https://github.blog/changelog/2022-02-01-github-actions-self-hosted-runners-can-now-disable-automatic-updates/)"
+  type        = bool
+  default     = false
 }

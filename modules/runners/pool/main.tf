@@ -16,9 +16,14 @@ resource "aws_lambda_function" "pool" {
 
   environment {
     variables = {
-      RUNNER_OWNER                         = var.config.runner.pool_owner
+      DISABLE_RUNNER_AUTOUPDATE            = var.config.runner.disable_runner_autoupdate
+      ENABLE_EPHEMERAL_RUNNERS             = var.config.runner.ephemeral
       ENVIRONMENT                          = var.config.environment
       GHES_URL                             = var.config.ghes.url
+      INSTANCE_ALLOCATION_STRATEGY         = var.config.instance_allocation_strategy
+      INSTANCE_MAX_SPOT_PRICE              = var.config.instance_max_spot_price
+      INSTANCE_TARGET_CAPACITY_TYPE        = var.config.instance_target_capacity_type
+      INSTANCE_TYPES                       = join(",", var.config.instance_types)
       LAUNCH_TEMPLATE_NAME                 = var.config.runner.launch_template.name
       LOG_LEVEL                            = var.config.lambda.log_level
       LOG_TYPE                             = var.config.lambda.log_type
@@ -27,12 +32,8 @@ resource "aws_lambda_function" "pool" {
       PARAMETER_GITHUB_APP_KEY_BASE64_NAME = var.config.github_app_parameters.key_base64.name
       RUNNER_EXTRA_LABELS                  = var.config.runner.extra_labels
       RUNNER_GROUP_NAME                    = var.config.runner.group_name
+      RUNNER_OWNER                         = var.config.runner.pool_owner
       SUBNET_IDS                           = join(",", var.config.subnet_ids)
-      ENABLE_EPHEMERAL_RUNNERS             = var.config.runner.ephemeral
-      INSTANCE_TYPES                       = join(",", var.config.instance_types)
-      INSTANCE_TARGET_CAPACITY_TYPE        = var.config.instance_target_capacity_type
-      INSTANCE_MAX_SPOT_PRICE              = var.config.instance_max_spot_price
-      INSTANCE_ALLOCATION_STRATEGY         = var.config.instance_allocation_strategy
     }
   }
 
@@ -99,7 +100,7 @@ data "aws_iam_policy_document" "lambda_assume_role_policy" {
 resource "aws_cloudwatch_event_rule" "pool" {
   count = length(var.config.pool)
 
-  name                = "${var.config.environment}-pool-rule"
+  name                = "${var.config.environment}-pool-${count.index}-rule"
   schedule_expression = var.config.pool[count.index].schedule_expression
   tags                = var.config.tags
 }
@@ -118,7 +119,7 @@ resource "aws_cloudwatch_event_target" "pool" {
 resource "aws_lambda_permission" "pool" {
   count = length(var.config.pool)
 
-  statement_id  = "AllowExecutionFromCloudWatch"
+  statement_id  = "AllowExecutionFromCloudWatch-${count.index}"
   action        = "lambda:InvokeFunction"
   function_name = aws_lambda_function.pool.function_name
   principal     = "events.amazonaws.com"
