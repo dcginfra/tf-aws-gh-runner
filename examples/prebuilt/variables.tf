@@ -6,7 +6,7 @@ EOF
 }
 
 variable "github_app_id" {
-  default = 162357
+  default = 188234
 }
 
 variable "runner_os" {
