@@ -4,11 +4,13 @@ variable "config" {
       log_level                      = string
       log_type                       = string
       logging_retention_in_days      = number
+      logging_kms_key_id             = string
       reserved_concurrent_executions = number
       s3_bucket                      = string
       s3_key                         = string
       s3_object_version              = string
       security_group_ids             = list(string)
+      runtime                        = string
       timeout                        = number
       zip                            = string
       subnet_ids                     = list(string)
@@ -40,7 +42,7 @@ variable "config" {
     instance_target_capacity_type = string
     instance_allocation_strategy  = string
     instance_max_spot_price       = string
-    environment                   = string
+    prefix                        = string
     pool = list(object({
       schedule_expression = string
       size                = number
@@ -49,4 +51,10 @@ variable "config" {
     kms_key_arn               = string
     role_path                 = string
   })
+}
+
+variable "aws_partition" {
+  description = "(optional) partition for the arn if not 'aws'"
+  type        = string
+  default     = "aws"
 }

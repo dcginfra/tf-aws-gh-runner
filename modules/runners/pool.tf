@@ -4,7 +4,7 @@ module "pool" {
   source = "./pool"
 
   config = {
-    environment = var.environment
+    prefix = var.prefix
     ghes = {
       ssl_verify = var.ghes_ssl_verify
       url        = var.ghes_url
@@ -19,12 +19,14 @@ module "pool" {
       log_level                      = var.log_level
       log_type                       = var.log_type
       logging_retention_in_days      = var.logging_retention_in_days
+      logging_kms_key_id             = var.logging_kms_key_id
       reserved_concurrent_executions = var.pool_lambda_reserved_concurrent_executions
       s3_bucket                      = var.lambda_s3_bucket
       s3_key                         = var.runners_lambda_s3_key
       s3_object_version              = var.runners_lambda_s3_object_version
       security_group_ids             = var.lambda_security_group_ids
       subnet_ids                     = var.lambda_subnet_ids
+      runtime                        = var.lambda_runtime
       timeout                        = var.pool_lambda_timeout
       zip                            = local.lambda_zip
     }
@@ -43,5 +45,7 @@ module "pool" {
     subnet_ids = var.subnet_ids
     tags       = local.tags
   }
+
+  aws_partition = var.aws_partition
 
 }

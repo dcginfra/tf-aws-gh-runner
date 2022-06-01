@@ -22,6 +22,18 @@ variable "tags" {
 variable "environment" {
   description = "A name that identifies the environment, used as prefix and for tagging."
   type        = string
+  default     = null
+
+  validation {
+    condition     = var.environment == null
+    error_message = "The \"environment\" variable is no longer used. To migrate, set the \"prefix\" variable to the original value of \"environment\" and optionally, add \"Environment\" to the \"tags\" variable map with the same value."
+  }
+}
+
+variable "prefix" {
+  description = "The prefix used for naming resources"
+  type        = string
+  default     = "github-actions"
 }
 
 variable "enable_organization_runners" {
@@ -165,8 +177,14 @@ variable "kms_key_arn" {
   default     = null
 }
 
+variable "enable_runner_detailed_monitoring" {
+  description = "Should detailed monitoring be enabled for the runner. Set this to true if you want to use detailed monitoring. See https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-cloudwatch-new.html for details."
+  type        = bool
+  default     = false
+}
+
 variable "enabled_userdata" {
-  description = "Should the userdata script be enabled for the runner. Set this to false if you are using your own prebuilt AMI"
+  description = "Should the userdata script be enabled for the runner. Set this to false if you are using your own prebuilt AMI."
   type        = bool
   default     = true
 }
@@ -211,6 +229,12 @@ variable "logging_retention_in_days" {
   default     = 180
 }
 
+variable "logging_kms_key_id" {
+  description = "Specifies the kms key id to encrypt the logs with"
+  type        = string
+  default     = null
+}
+
 variable "runner_allow_prerelease_binaries" {
   description = "Allow the runners to update to prerelease binaries."
   type        = bool
@@ -219,8 +243,22 @@ variable "runner_allow_prerelease_binaries" {
 
 variable "block_device_mappings" {
   description = "The EC2 instance block device configuration. Takes the following keys: `device_name`, `delete_on_termination`, `volume_type`, `volume_size`, `encrypted`, `iops`"
-  type        = map(string)
-  default     = {}
+  type = list(object({
+    device_name           = string
+    delete_on_termination = bool
+    volume_type           = string
+    volume_size           = number
+    encrypted             = bool
+    iops                  = number
+  }))
+  default = [{
+    device_name           = "/dev/xvda"
+    delete_on_termination = true
+    volume_type           = "gp3"
+    volume_size           = 30
+    encrypted             = true
+    iops                  = null
+  }]
 }
 
 variable "ami_filter" {
@@ -376,12 +414,6 @@ variable "instance_max_spot_price" {
   default     = null
 }
 
-variable "volume_size" {
-  description = "Size of runner volume"
-  type        = number
-  default     = 30
-}
-
 variable "instance_type" {
   description = "[DEPRECATED] See instance_types."
   type        = string
@@ -501,6 +533,12 @@ variable "enable_ephemeral_runners" {
   default     = false
 }
 
+variable "enable_job_queued_check" {
+  description = "Only scale if the job event received by the scale up lambda is is in the state queued. By default enabled for non ephemeral runners and disabled for ephemeral. Set this variable to overwrite the default behavior."
+  type        = bool
+  default     = null
+}
+
 variable "enable_managed_runner_security_group" {
   description = "Enabling the default managed security group creation. Unmanaged security groups can be specified via `runner_additional_security_group_ids`."
   type        = bool
@@ -586,8 +624,20 @@ variable "pool_config" {
   default = []
 }
 
+variable "aws_partition" {
+  description = "(optiona) partition in the arn namespace to use if not 'aws'"
+  type        = string
+  default     = "aws"
+}
+
 variable "disable_runner_autoupdate" {
   description = "Disable the auto update of the github runner agent. Be-aware there is a grace period of 30 days, see also the [GitHub article](https://github.blog/changelog/2022-02-01-github-actions-self-hosted-runners-can-now-disable-automatic-updates/)"
   type        = bool
   default     = false
+}
+
+variable "lambda_runtime" {
+  description = "AWS Lambda runtime."
+  type        = string
+  default     = "nodejs14.x"
 }

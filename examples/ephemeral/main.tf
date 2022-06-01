@@ -16,7 +16,7 @@ module "runners" {
   vpc_id                          = module.vpc.vpc_id
   subnet_ids                      = module.vpc.private_subnets
 
-  environment = local.environment
+  prefix = local.environment
   tags = {
     Project = "ProjectX"
   }
@@ -63,6 +63,9 @@ module "runners" {
   #   size                = 20
   #   schedule_expression = "cron(* * * * ? *)"
   # }]
+  #
+  #
+  enable_job_queued_check = true
 
   # configure your pre-built AMI
   # enabled_userdata = false

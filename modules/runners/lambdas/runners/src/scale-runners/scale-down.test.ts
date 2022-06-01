@@ -18,6 +18,8 @@ const mockOctokit = {
     listSelfHostedRunnersForOrg: jest.fn(),
     deleteSelfHostedRunnerFromOrg: jest.fn(),
     deleteSelfHostedRunnerFromRepo: jest.fn(),
+    getSelfHostedRunnerForOrg: jest.fn(),
+    getSelfHostedRunnerForRepo: jest.fn(),
   },
   paginate: jest.fn(),
 };
@@ -143,6 +145,18 @@ const DEFAULT_RUNNERS_ORIGINAL = [
     launchTime: moment(new Date()).toDate(),
     repo: `${TEST_DATA.repositoryOwner}/${TEST_DATA.repositoryName}`,
   },
+  {
+    instanceId: 'i-running-112',
+    launchTime: moment(new Date()).subtract(25, 'minutes').toDate(),
+    type: 'Repo',
+    owner: `doe/another-repo`,
+  },
+  {
+    instanceId: 'i-running-113',
+    launchTime: moment(new Date()).subtract(25, 'minutes').toDate(),
+    type: 'Org',
+    owner: TEST_DATA.repositoryOwner,
+  },
 ];
 
 const DEFAULT_REGISTERED_RUNNERS = [
@@ -169,6 +183,22 @@ const DEFAULT_REGISTERED_RUNNERS = [
   {
     id: 106,
     name: 'i-running-106',
+  },
+  {
+    id: 1121,
+    name: 'i-running-112-1',
+  },
+  {
+    id: 1122,
+    name: 'i-running-112-2',
+  },
+  {
+    id: 1131,
+    name: 'i-running-113-1',
+  },
+  {
+    id: 1132,
+    name: 'i-running-113-2',
   },
 ];
 
@@ -213,6 +243,29 @@ describe('scaleDown', () => {
         throw Error();
       } else {
         return { status: 204 };
+      }
+    });
+
+    mockOctokit.actions.getSelfHostedRunnerForRepo.mockImplementation((repo) => {
+      if (repo.runner_id === 1121) {
+        return {
+          data: { busy: true },
+        };
+      } else {
+        return {
+          data: { busy: false },
+        };
+      }
+    });
+    mockOctokit.actions.getSelfHostedRunnerForOrg.mockImplementation((repo) => {
+      if (repo.runner_id === 1131) {
+        return {
+          data: { busy: true },
+        };
+      } else {
+        return {
+          data: { busy: false },
+        };
       }
     });
 
@@ -329,7 +382,7 @@ describe('scaleDown', () => {
       beforeEach(() => {
         process.env.SCALE_DOWN_CONFIG = JSON.stringify([
           {
-            idleCount: 2,
+            idleCount: 3,
             cron: '* * * * * *',
             timeZone: 'Europe/Amsterdam',
           },
@@ -459,7 +512,7 @@ describe('scaleDown', () => {
       beforeEach(() => {
         process.env.SCALE_DOWN_CONFIG = JSON.stringify([
           {
-            idleCount: 2,
+            idleCount: 3,
             cron: '* * * * * *',
             timeZone: 'Europe/Amsterdam',
           },

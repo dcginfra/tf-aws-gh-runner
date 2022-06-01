@@ -24,7 +24,7 @@ variable "overrides" {
 }
 
 variable "tags" {
-  description = "Map of tags that will be added to created resources. By default resources will be tagged with name and environment."
+  description = "Map of tags that will be added to created resources. By default resources will be tagged with name."
   type        = map(string)
   default     = {}
 }
@@ -32,6 +32,18 @@ variable "tags" {
 variable "environment" {
   description = "A name that identifies the environment, used as prefix and for tagging."
   type        = string
+  default     = null
+
+  validation {
+    condition     = var.environment == null
+    error_message = "The \"environment\" variable is no longer used. To migrate, set the \"prefix\" variable to the original value of \"environment\" and optionally, add \"Environment\" to the \"tags\" variable map with the same value."
+  }
+}
+
+variable "prefix" {
+  description = "The prefix used for naming resources"
+  type        = string
+  default     = "github-actions"
 }
 
 variable "s3_bucket_runner_binaries" {
@@ -47,8 +59,22 @@ variable "s3_location_runner_binaries" {
 
 variable "block_device_mappings" {
   description = "The EC2 instance block device configuration. Takes the following keys: `device_name`, `delete_on_termination`, `volume_type`, `volume_size`, `encrypted`, `iops`"
-  type        = map(string)
-  default     = {}
+  type = list(object({
+    device_name           = string
+    delete_on_termination = bool
+    volume_type           = string
+    volume_size           = number
+    encrypted             = bool
+    iops                  = number
+  }))
+  default = [{
+    device_name           = "/dev/xvda"
+    delete_on_termination = true
+    volume_type           = "gp3"
+    volume_size           = 30
+    encrypted             = true
+    iops                  = null
+  }]
 }
 
 variable "market_options" {
@@ -229,13 +255,13 @@ variable "role_permissions_boundary" {
 }
 
 variable "role_path" {
-  description = "The path that will be added to the role; if not set, the environment name will be used."
+  description = "The path that will be added to the role; if not set, the prefix will be used."
   type        = string
   default     = null
 }
 
 variable "instance_profile_path" {
-  description = "The path that will be added to the instance_profile, if not set the environment name will be used."
+  description = "The path that will be added to the instance_profile, if not set the prefix will be used."
   type        = string
   default     = null
 }
@@ -280,6 +306,12 @@ variable "logging_retention_in_days" {
   default     = 180
 }
 
+variable "logging_kms_key_id" {
+  description = "Specifies the kms key id to encrypt the logs with"
+  type        = string
+  default     = null
+}
+
 variable "enable_ssm_on_runners" {
   description = "Enable to allow access to the runner instances for debugging purposes via SSM. Note that this adds additional permissions to the runner instances."
   type        = bool
@@ -304,6 +336,12 @@ variable "create_service_linked_role_spot" {
   description = "(optional) create the service linked role for spot instances that is required by the scale-up lambda."
   type        = bool
   default     = false
+}
+
+variable "aws_partition" {
+  description = "(optional) partition for the base arn if not 'aws'"
+  type        = string
+  default     = "aws"
 }
 
 variable "runner_iam_role_managed_policy_arns" {
@@ -331,7 +369,7 @@ variable "cloudwatch_config" {
 }
 
 variable "runner_log_files" {
-  description = "(optional) List of logfiles to send to CloudWatch, will only be used if `enable_cloudwatch_agent` is set to true. Object description: `log_group_name`: Name of the log group, `prefix_log_group`: If true, the log group name will be prefixed with `/github-self-hosted-runners/<var.environment>`, `file_path`: path to the log file, `log_stream_name`: name of the log stream."
+  description = "(optional) List of logfiles to send to CloudWatch, will only be used if `enable_cloudwatch_agent` is set to true. Object description: `log_group_name`: Name of the log group, `prefix_log_group`: If true, the log group name will be prefixed with `/github-self-hosted-runners/<var.prefix>`, `file_path`: path to the log file, `log_stream_name`: name of the log stream."
   type = list(object({
     log_group_name   = string
     prefix_log_group = bool
@@ -377,16 +415,16 @@ variable "runner_additional_security_group_ids" {
   default     = []
 }
 
-variable "volume_size" {
-  description = "Size of runner volume"
-  type        = number
-  default     = 30
-}
-
 variable "kms_key_arn" {
   description = "Optional CMK Key ARN to be used for Parameter Store."
   type        = string
   default     = null
+}
+
+variable "enable_runner_detailed_monitoring" {
+  description = "Enable detailed monitoring for runners"
+  type        = bool
+  default     = false
 }
 
 variable "egress_rules" {
@@ -469,6 +507,12 @@ variable "enable_ephemeral_runners" {
   default     = false
 }
 
+variable "enable_job_queued_check" {
+  description = "Only scale if the job event received by the scale up lambda is is in the state queued. By default enabled for non ephemeral runners and disabled for ephemeral. Set this variable to overwrite the default behavior."
+  type        = bool
+  default     = null
+}
+
 variable "pool_lambda_timeout" {
   description = "Time out for the pool lambda lambda in seconds."
   type        = number
@@ -499,5 +543,11 @@ variable "pool_config" {
 variable "disable_runner_autoupdate" {
   description = "Disable the auto update of the github runner agent. Be-aware there is a grace period of 30 days, see also the [GitHub article](https://github.blog/changelog/2022-02-01-github-actions-self-hosted-runners-can-now-disable-automatic-updates/)"
   type        = bool
-  default     = true
+  default     = false
+}
+
+variable "lambda_runtime" {
+  description = "AWS Lambda runtime."
+  type        = string
+  default     = "nodejs14.x"
 }
