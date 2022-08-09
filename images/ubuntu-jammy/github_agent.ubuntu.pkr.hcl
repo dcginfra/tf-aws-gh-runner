@@ -10,13 +10,13 @@ packer {
 variable "runner_version" {
   description = "The version (no v prefix) of the runner software to install https://github.com/actions/runner/releases"
   type        = string
-  default     = "2.292.0"
+  default     = "2.294.0"
 }
 
 variable "region" {
   description = "The region to build the image in"
   type        = string
-  default     = "eu-central-1"
+  default     = "eu-west-1"
 }
 
 variable "security_group_id" {
@@ -40,12 +40,12 @@ variable "associate_public_ip_address" {
 variable "instance_type" {
   description = "The instance type Packer will use for the builder"
   type        = string
-  default     = "c5a.4xlarge"
+  default     = "t3.medium"
 }
 
 variable "root_volume_size_gb" {
   type    = number
-  default = 20
+  default = 8
 }
 
 variable "ebs_delete_on_termination" {
@@ -79,7 +79,7 @@ variable "custom_shell_commands" {
 }
 
 source "amazon-ebs" "githubrunner" {
-  ami_name                    = "github-runner-ubuntu-focal-amd64-${formatdate("YYYYMMDDhhmm", timestamp())}"
+  ami_name                    = "github-runner-ubuntu-jammy-amd64-${formatdate("YYYYMMDDhhmm", timestamp())}"
   instance_type               = var.instance_type
   region                      = var.region
   security_group_id           = var.security_group_id
@@ -88,7 +88,7 @@ source "amazon-ebs" "githubrunner" {
 
   source_ami_filter {
     filters = {
-      name                = "*ubuntu/images/hvm-ssd/ubuntu-focal-20.04-amd64-server-*"
+      name                = "*/ubuntu-jammy-22.04-amd64-server-*"
       root-device-type    = "ebs"
       virtualization-type = "hvm"
     }
@@ -100,7 +100,7 @@ source "amazon-ebs" "githubrunner" {
     var.global_tags,
     var.ami_tags,
     {
-      OS_Version    = "ubuntu-focal"
+      OS_Version    = "ubuntu-jammy"
       Release       = "Latest"
       Base_AMI_Name = "{{ .SourceAMIName }}"
   })
@@ -164,7 +164,7 @@ build {
       "sudo chmod +x /tmp/install-runner.sh",
       "echo ubuntu | tee -a /tmp/install-user.txt",
       "sudo RUNNER_ARCHITECTURE=x64 RUNNER_TARBALL_URL=$RUNNER_TARBALL_URL /tmp/install-runner.sh",
-      "echo ImageOS=ubuntu20 | tee -a /opt/actions-runner/.env"
+      "echo ImageOS=ubuntu22 | tee -a /opt/actions-runner/.env"
     ]
   }
 
