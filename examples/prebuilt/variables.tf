@@ -6,7 +6,7 @@ EOF
 }
 
 variable "github_app_id" {
-  default = 162357
+  default = 226651
 }
 
 variable "runner_os" {
@@ -21,7 +21,7 @@ variable "runner_run_as" {
 
 variable "ami_name_filter" {
   type    = string
-  default = "github-runner-ubuntu-focal-amd64-2022*"
+  default = "github-runner-ubuntu-x86_64-2022*"
 }
 
 variable "aws_region" {
