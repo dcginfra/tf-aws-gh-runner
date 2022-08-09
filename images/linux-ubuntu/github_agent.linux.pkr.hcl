@@ -16,7 +16,7 @@ variable "action_runner_url" {
 variable "region" {
   description = "The region to build the image in"
   type        = string
-  default     = "us-west-1"
+  default     = "us-east-2"
 }
 
 source "amazon-ebs" "githubrunner" {
