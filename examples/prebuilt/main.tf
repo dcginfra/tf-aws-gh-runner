@@ -37,6 +37,9 @@ module "runners" {
     volume_size           = 30
     encrypted             = true
     iops                  = null
+    throughput            = null
+    kms_key_id            = null
+    snapshot_id           = null
   }]
 
   runner_os      = var.runner_os
