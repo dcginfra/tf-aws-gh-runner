@@ -28,9 +28,9 @@ jest.mock('./../aws/runners');
 jest.mock('./../gh-auth/gh-auth');
 
 const mocktokit = Octokit as jest.MockedClass<typeof Octokit>;
-const mockedAppAuth = mocked(ghAuth.createGithubAppAuth, true);
-const mockedInstallationAuth = mocked(ghAuth.createGithubInstallationAuth, true);
-const mockCreateClient = mocked(ghAuth.createOctoClient, true);
+const mockedAppAuth = mocked(ghAuth.createGithubAppAuth, { shallow: false });
+const mockedInstallationAuth = mocked(ghAuth.createGithubInstallationAuth, { shallow: false });
+const mockCreateClient = mocked(ghAuth.createOctoClient, { shallow: false });
 
 const TEST_DATA: scaleUpModule.ActionRequestMessage = {
   id: 1,
@@ -62,6 +62,7 @@ const EXPECTED_RUNNER_PARAMS: RunnerInputParameters = {
     targetCapacityType: 'spot',
     instanceAllocationStrategy: 'lowest-price',
   },
+  ssmTokenPath: '/github-action-runners/default/runners/config',
   subnets: ['subnet-123'],
 };
 let expectedRunnerParams: RunnerInputParameters;
@@ -76,8 +77,9 @@ beforeEach(() => {
   process.env.GITHUB_APP_CLIENT_ID = 'TEST_CLIENT_ID';
   process.env.GITHUB_APP_CLIENT_SECRET = 'TEST_CLIENT_SECRET';
   process.env.RUNNERS_MAXIMUM_COUNT = '3';
-  process.env.ENVIRONMENT = 'unit-test-environment';
+  process.env.ENVIRONMENT = EXPECTED_RUNNER_PARAMS.environment;
   process.env.LAUNCH_TEMPLATE_NAME = 'lt-1';
+  process.env.SSM_TOKEN_PATH = EXPECTED_RUNNER_PARAMS.ssmTokenPath;
   process.env.SUBNET_IDS = 'subnet-123';
   process.env.INSTANCE_TYPES = 'm5.large';
   process.env.INSTANCE_TARGET_CAPACITY_TYPE = 'spot';
@@ -227,11 +229,6 @@ describe('scaleUp with GHES', () => {
       expect(createRunner).toBeCalledWith(expectedRunnerParams);
     });
 
-    it('creates a runner with legacy event check_run', async () => {
-      await scaleUpModule.scaleUp('aws:sqs', { ...TEST_DATA, eventType: 'check_run' });
-      expect(createRunner).toBeCalledWith(expectedRunnerParams);
-    });
-
     it('creates a runner with labels in a specific group', async () => {
       process.env.RUNNER_EXTRA_LABELS = 'label1,label2';
       process.env.RUNNER_GROUP_NAME = 'TEST_GROUP';
@@ -242,6 +239,12 @@ describe('scaleUp with GHES', () => {
         '--runnergroup TEST_GROUP',
       ];
       expect(createRunner).toBeCalledWith(expectedRunnerParams);
+    });
+
+    it('creates a runner with ami id override from ssm parameter', async () => {
+      process.env.AMI_ID_SSM_PARAMETER_NAME = 'my-ami-id-param';
+      await scaleUpModule.scaleUp('aws:sqs', TEST_DATA);
+      expect(createRunner).toBeCalledWith({ ...expectedRunnerParams, amiIdSsmParameterName: 'my-ami-id-param' });
     });
   });
 
@@ -396,14 +399,6 @@ describe('scaleUp with public GH', () => {
     expect(listEC2Runners).not.toBeCalled();
   });
 
-  it('does not list runners when no workflows are queued (check_run)', async () => {
-    mockOctokit.checks.get.mockImplementation(() => ({
-      data: { status: 'completed' },
-    }));
-    await scaleUpModule.scaleUp('aws:sqs', { ...TEST_DATA, eventType: 'check_run' });
-    expect(listEC2Runners).not.toBeCalled();
-  });
-
   describe('on org level', () => {
     beforeEach(() => {
       process.env.ENABLE_ORGANIZATION_RUNNERS = 'true';
@@ -440,11 +435,6 @@ describe('scaleUp with public GH', () => {
 
     it('creates a runner with correct config', async () => {
       await scaleUpModule.scaleUp('aws:sqs', TEST_DATA);
-      expect(createRunner).toBeCalledWith(expectedRunnerParams);
-    });
-
-    it('creates a runner with legacy event check_run', async () => {
-      await scaleUpModule.scaleUp('aws:sqs', { ...TEST_DATA, eventType: 'check_run' });
       expect(createRunner).toBeCalledWith(expectedRunnerParams);
     });
 

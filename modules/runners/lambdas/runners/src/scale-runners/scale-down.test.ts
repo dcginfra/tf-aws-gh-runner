@@ -27,14 +27,18 @@ jest.mock('@octokit/rest', () => ({
   Octokit: jest.fn().mockImplementation(() => mockOctokit),
 }));
 
-jest.mock('./../aws/runners');
+jest.mock('./../aws/runners', () => ({
+  ...jest.requireActual('./../aws/runners'),
+  terminateRunner: jest.fn(),
+  listEC2Runners: jest.fn(),
+}));
 jest.mock('./../gh-auth/gh-auth');
 jest.mock('./cache');
 
 const mocktokit = Octokit as jest.MockedClass<typeof Octokit>;
-const mockedAppAuth = mocked(ghAuth.createGithubAppAuth, true);
-const mockedInstallationAuth = mocked(ghAuth.createGithubInstallationAuth, true);
-const mockCreateClient = mocked(ghAuth.createOctoClient, true);
+const mockedAppAuth = mocked(ghAuth.createGithubAppAuth, { shallow: false });
+const mockedInstallationAuth = mocked(ghAuth.createGithubInstallationAuth, { shallow: false });
+const mockCreateClient = mocked(ghAuth.createOctoClient, { shallow: false });
 const mockListRunners = mocked(listEC2Runners);
 
 export interface TestData {
@@ -444,7 +448,7 @@ describe('scaleDown', () => {
 
       expect(mockOctokit.apps.getRepoInstallation).toBeCalledTimes(2);
       expect(mockOctokit.apps.getOrgInstallation).toBeCalledTimes(1);
-      expect(terminateRunner).toBeCalledTimes(8);
+      expect(terminateRunner).toBeCalledTimes(7);
       for (const toTerminate of RUNNERS_ALL_REMOVED) {
         expect(terminateRunner).toHaveBeenCalledWith(toTerminate.instanceId);
       }
@@ -558,7 +562,7 @@ describe('scaleDown', () => {
 
       expect(mockOctokit.apps.getRepoInstallation).toBeCalledTimes(2);
       expect(mockOctokit.apps.getOrgInstallation).toBeCalledTimes(1);
-      expect(terminateRunner).toBeCalledTimes(8);
+      expect(terminateRunner).toBeCalledTimes(7);
       for (const toTerminate of RUNNERS_ALL_REMOVED) {
         expect(terminateRunner).toHaveBeenCalledWith(toTerminate.instanceId);
       }

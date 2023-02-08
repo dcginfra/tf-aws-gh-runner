@@ -7,14 +7,19 @@ resource "random_id" "random" {
   byte_length = 20
 }
 
-data "aws_caller_identity" "current" {}
+module "base" {
+  source = "../base"
+
+  prefix     = local.environment
+  aws_region = local.aws_region
+}
 
 module "runners" {
   source = "../../"
 
   aws_region = local.aws_region
-  vpc_id     = module.vpc.vpc_id
-  subnet_ids = module.vpc.private_subnets
+  vpc_id     = module.base.vpc.vpc_id
+  subnet_ids = module.base.vpc.private_subnets
 
   prefix = local.environment
   tags = {
@@ -22,8 +27,8 @@ module "runners" {
   }
 
   github_app = {
-    key_base64     = var.github_app_key_base64
-    id             = var.github_app_id
+    key_base64     = var.github_app.key_base64
+    id             = var.github_app.id
     webhook_secret = random_id.random.hex
   }
 
@@ -32,7 +37,7 @@ module "runners" {
   # runners_lambda_zip                = "lambdas-download/runners.zip"
 
   enable_organization_runners = false
-  runner_extra_labels         = "ubuntu,example"
+  runner_extra_labels         = "default,example"
 
   # enable access to the runners via SSM
   enable_ssm_on_runners = true
@@ -46,15 +51,15 @@ module "runners" {
   ami_owners        = ["099720109477"] # Canonical's Amazon account ID
 
   ami_filter = {
-    name = ["ubuntu/images/hvm-ssd/ubuntu-focal-20.04-amd64-server-*"]
+    name = ["ubuntu/images/hvm-ssd/ubuntu-jammy-22.04-amd64-server-*"]
   }
 
   # Custom build AMI, no custom userdata needed.
   # option 2: Build custom AMI see ../../images/ubuntu-focal
   #           disable lines above (option 1) and enable the ones below
   # ami_filter = { name = ["github-runner-ubuntu-focal-amd64-*"] }
+  # data "aws_caller_identity" "current" {}
   # ami_owners = [data.aws_caller_identity.current.account_id]
-
 
   block_device_mappings = [{
     # Set the block device name for Ubuntu root device
@@ -93,7 +98,7 @@ module "runners" {
   # Uncomment to enable ephemeral runners
   # delay_webhook_event      = 0
   # enable_ephemeral_runners = true
-  # enabled_userdata         = false
+  # enable_userdata         = true
 
   # Uncommet idle config to have idle runners from 9 to 5 in time zone Amsterdam
   # idle_config = [{
@@ -102,4 +107,6 @@ module "runners" {
   #   idleCount = 1
   # }]
 
+  # Enable logging all commands of user_data, secrets will be logged!!!
+  # enable_user_data_debug_logging_runner = true
 }

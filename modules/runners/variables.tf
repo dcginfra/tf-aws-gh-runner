@@ -46,52 +46,31 @@ variable "prefix" {
   default     = "github-actions"
 }
 
-variable "s3_bucket_runner_binaries" {
+variable "s3_runner_binaries" {
+  description = "Bucket details for cached GitHub binary."
   type = object({
     arn = string
+    id  = string
+    key = string
   })
-}
-
-variable "s3_location_runner_binaries" {
-  description = "S3 location of runner distribution."
-  type        = string
 }
 
 variable "block_device_mappings" {
   description = "The EC2 instance block device configuration. Takes the following keys: `device_name`, `delete_on_termination`, `volume_type`, `volume_size`, `encrypted`, `iops`, `throughput`, `kms_key_id`, `snapshot_id`."
   type = list(object({
-    delete_on_termination = bool
-    device_name           = string
-    encrypted             = bool
-    iops                  = number
-    kms_key_id            = string
-    snapshot_id           = string
-    throughput            = number
+    delete_on_termination = optional(bool, true)
+    device_name           = optional(string, "/dev/xvda")
+    encrypted             = optional(bool, true)
+    iops                  = optional(number)
+    kms_key_id            = optional(string)
+    snapshot_id           = optional(string)
+    throughput            = optional(number)
     volume_size           = number
-    volume_type           = string
+    volume_type           = optional(string, "gp3")
   }))
   default = [{
-    delete_on_termination = true
-    device_name           = "/dev/xvda"
-    encrypted             = true
-    iops                  = null
-    kms_key_id            = null
-    snapshot_id           = null
-    throughput            = null
-    volume_size           = 30
-    volume_type           = "gp3"
+    volume_size = 30
   }]
-}
-
-variable "market_options" {
-  description = "DEPCRECATED: Replaced by `instance_target_capacity_type`."
-  type        = string
-  default     = null
-
-  validation {
-    condition     = anytrue([var.market_options == null])
-    error_message = "Deprecated, replaced by `instance_target_capacity_type`."
-  }
 }
 
 variable "instance_target_capacity_type" {
@@ -111,7 +90,7 @@ variable "instance_allocation_strategy" {
   default     = "lowest-price"
 
   validation {
-    condition     = contains(["lowest-price", "diversified", "capacity-optimized", "capacity-optimized-prioritized"], var.instance_allocation_strategy)
+    condition     = contains(["lowest-price", "diversified", "capacity-optimized", "capacity-optimized-prioritized", "price-capacity-optimized"], var.instance_allocation_strategy)
     error_message = "The instance allocation strategy does not match the allowed values."
   }
 }
@@ -133,7 +112,7 @@ variable "runner_os" {
   }
 }
 
-variable "instance_type" {
+variable "instance_type" { # tflint-ignore: terraform_unused_declarations
   description = "[DEPRECATED] See instance_types."
   type        = string
   default     = "m5.large"
@@ -157,7 +136,13 @@ variable "ami_owners" {
   default     = ["amazon"]
 }
 
-variable "enabled_userdata" {
+variable "ami_id_ssm_parameter_name" {
+  description = "Externally managed SSM parameter (of data type aws:ec2:image) that contains the AMI ID to launch runner instances from. Overrides ami_filter"
+  type        = string
+  default     = null
+}
+
+variable "enable_userdata" {
   description = "Should the userdata script be enabled for the runner. Set this to false if you are using your own prebuilt AMI"
   type        = bool
   default     = true
@@ -273,7 +258,7 @@ variable "instance_profile_path" {
 }
 
 variable "runner_as_root" {
-  description = "Run the action runner under the root user. Variable `runner_run_as` will be ingored."
+  description = "Run the action runner under the root user. Variable `runner_run_as` will be ignored."
   type        = bool
   default     = false
 }
@@ -325,16 +310,19 @@ variable "enable_ssm_on_runners" {
 
 variable "lambda_s3_bucket" {
   description = "S3 bucket from which to specify lambda functions. This is an alternative to providing local files directly."
+  type        = string
   default     = null
 }
 
 variable "runners_lambda_s3_key" {
   description = "S3 key for runners lambda function. Required if using S3 bucket to specify lambdas."
+  type        = string
   default     = null
 }
 
 variable "runners_lambda_s3_object_version" {
   description = "S3 object version for runners lambda function. Useful if S3 versioning is enabled on source bucket."
+  type        = string
   default     = null
 }
 
@@ -492,15 +480,16 @@ variable "log_level" {
 }
 
 variable "runner_ec2_tags" {
-  description = "Map of tags that will be added to the launch template instance tag specificatons."
+  description = "Map of tags that will be added to the launch template instance tag specifications."
   type        = map(string)
   default     = {}
 }
 
 variable "metadata_options" {
-  description = "Metadata options for the ec2 runner instances."
+  description = "Metadata options for the ec2 runner instances. By default, the module uses metadata tags for bootstrapping the runner, only disable `instance_metadata_tags` when using custom scripts for starting the runner."
   type        = map(any)
   default = {
+    instance_metadata_tags      = "enabled"
     http_endpoint               = "enabled"
     http_tokens                 = "optional"
     http_put_response_hop_limit = 1
@@ -520,7 +509,7 @@ variable "enable_job_queued_check" {
 }
 
 variable "pool_lambda_timeout" {
-  description = "Time out for the pool lambda lambda in seconds."
+  description = "Time out for the pool lambda in seconds."
   type        = number
   default     = 60
 }
@@ -538,7 +527,7 @@ variable "pool_lambda_reserved_concurrent_executions" {
 }
 
 variable "pool_config" {
-  description = "The configuration for updating the pool. The `pool_size` to adjust to by the events triggered by the the `schedule_expression. For example you can configure a cron expression for week days to adjust the pool to 10 and another expression for the weekend to adjust the pool to 1."
+  description = "The configuration for updating the pool. The `pool_size` to adjust to by the events triggered by the `schedule_expression`. For example you can configure a cron expression for week days to adjust the pool to 10 and another expression for the weekend to adjust the pool to 1."
   type = list(object({
     schedule_expression = string
     size                = number
@@ -555,15 +544,35 @@ variable "disable_runner_autoupdate" {
 variable "lambda_runtime" {
   description = "AWS Lambda runtime."
   type        = string
-  default     = "nodejs16.x"
+  default     = "nodejs18.x"
 }
 
 variable "lambda_architecture" {
   description = "AWS Lambda architecture. Lambda functions using Graviton processors ('arm64') tend to have better price/performance than 'x86_64' functions. "
   type        = string
-  default     = "x86_64"
+  default     = "arm64"
   validation {
     condition     = contains(["arm64", "x86_64"], var.lambda_architecture)
     error_message = "`lambda_architecture` value is not valid, valid values are: `arm64` and `x86_64`."
   }
+}
+variable "enable_runner_binaries_syncer" {
+  description = "Option to disable the lambda to sync GitHub runner distribution, useful when using a pre-build AMI."
+  type        = bool
+  default     = true
+}
+
+variable "enable_user_data_debug_logging" {
+  description = "Option to enable debug logging for user-data, this logs all secrets as well."
+  type        = bool
+  default     = false
+}
+
+variable "ssm_paths" {
+  description = "The root path used in SSM to store configuration and secreets."
+  type = object({
+    root   = string
+    tokens = string
+    config = string
+  })
 }

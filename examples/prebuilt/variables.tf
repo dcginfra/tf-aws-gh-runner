@@ -1,12 +1,17 @@
+variable "github_app" {
+  description = "GitHub for API usages."
 
-variable "github_app_key_base64" {
-  default = <<EOF
+  type = object({
+    id         = string
+    key_base64 = string
+  })
+
+  default = {
+    id = 226651
+    key_base64 = <<EOT
 insert base64 app key here
-EOF
-}
-
-variable "github_app_id" {
-  default = 226651
+EOT
+  }
 }
 
 variable "runner_os" {

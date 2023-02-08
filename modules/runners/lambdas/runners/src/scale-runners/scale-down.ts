@@ -3,7 +3,7 @@ import moment from 'moment';
 
 import { createGithubAppAuth, createGithubInstallationAuth, createOctoClient } from '../gh-auth/gh-auth';
 import { LogFields, logger as rootLogger } from '../logger';
-import { RunnerInfo, RunnerList, listEC2Runners, terminateRunner } from './../aws/runners';
+import { RunnerInfo, RunnerList, bootTimeExceeded, listEC2Runners, terminateRunner } from './../aws/runners';
 import { GhRunners, githubCache } from './cache';
 import { ScalingDownConfig, getIdleRunnerCount } from './scale-down-config';
 
@@ -99,12 +99,6 @@ function runnerMinimumTimeExceeded(runner: RunnerInfo): boolean {
   const launchTimePlusMinimum = moment(runner.launchTime).utc().add(minimumRunningTimeInMinutes, 'minutes');
   const now = moment(new Date()).utc();
   return launchTimePlusMinimum < now;
-}
-
-function bootTimeExceeded(ec2Runner: RunnerInfo): boolean {
-  const runnerBootTimeInMinutes = process.env.RUNNER_BOOT_TIME_IN_MINUTES;
-  const launchTimePlusBootTime = moment(ec2Runner.launchTime).utc().add(runnerBootTimeInMinutes, 'minutes');
-  return launchTimePlusBootTime < moment(new Date()).utc();
 }
 
 async function removeRunner(ec2runner: RunnerInfo, ghRunnerIds: number[]): Promise<void> {
@@ -220,21 +214,6 @@ async function listAndSortRunners(environment: string) {
   });
 }
 
-/**
- * We are moving to a new strategy to find and remove runners, this function will ensure
- * during migration runners tagged in the old way are removed.
- */
-function filterLegacyRunners(ec2runners: RunnerList[]): RunnerInfo[] {
-  return ec2runners
-    .filter((ec2Runner) => ec2Runner.repo || ec2Runner.org)
-    .map((ec2Runner) => ({
-      instanceId: ec2Runner.instanceId,
-      launchTime: ec2Runner.launchTime,
-      type: ec2Runner.org ? 'Org' : 'Repo',
-      owner: ec2Runner.org ? (ec2Runner.org as string) : (ec2Runner.repo as string),
-    }));
-}
-
 function filterRunners(ec2runners: RunnerList[]): RunnerInfo[] {
   return ec2runners.filter((ec2Runner) => ec2Runner.type) as RunnerInfo[];
 }
@@ -256,12 +235,9 @@ export async function scaleDown(): Promise<void> {
     logger.debug(`No active runners found for environment: '${environment}'`, LogFields.print());
     return;
   }
-  const legacyRunners = filterLegacyRunners(ec2Runners);
-  logger.debug(JSON.stringify(legacyRunners), LogFields.print());
-  const runners = filterRunners(ec2Runners);
 
+  const runners = filterRunners(ec2Runners);
   await evaluateAndRemoveRunners(runners, scaleDownConfigs);
-  await evaluateAndRemoveRunners(legacyRunners, scaleDownConfigs);
 
   const activeEc2RunnersCountAfter = (await listAndSortRunners(environment)).length;
   logger.info(

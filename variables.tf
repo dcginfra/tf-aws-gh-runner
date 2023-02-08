@@ -20,7 +20,7 @@ variable "tags" {
 }
 
 variable "environment" {
-  description = "A name that identifies the environment, used as prefix and for tagging."
+  description = "DEPRECATED, no longer used. See `prefix`"
   type        = string
   default     = null
 
@@ -135,6 +135,31 @@ variable "runner_binaries_s3_sse_configuration" {
   default     = {}
 }
 
+variable "runner_binaries_s3_logging_bucket" {
+  description = "Bucket for action runner distribution bucket access logging."
+  type        = string
+  default     = null
+
+  # Make sure the bucket name only contains legal characters
+  validation {
+    error_message = "Only lowercase alphanumeric characters and hyphens allowed in the bucket name."
+    condition     = var.runner_binaries_s3_logging_bucket == null || can(regex("^[a-z0-9-]*$", var.runner_binaries_s3_logging_bucket))
+  }
+}
+
+variable "runner_binaries_s3_logging_bucket_prefix" {
+  description = "Bucket prefix for action runner distribution bucket access logging."
+  type        = string
+  default     = null
+
+  # Make sure the bucket prefix only contains legal characters
+  validation {
+    error_message = "Only alphanumeric characters, hyphens followed by single slashes allowed in the bucket prefix."
+    condition     = var.runner_binaries_s3_logging_bucket_prefix == null || can(regex("^(([a-zA-Z0-9-])+(\\/?))*$", var.runner_binaries_s3_logging_bucket_prefix))
+  }
+}
+
+
 variable "role_permissions_boundary" {
   description = "Permissions boundary that will be added to the created roles."
   type        = string
@@ -154,7 +179,7 @@ variable "instance_profile_path" {
 }
 
 variable "runner_as_root" {
-  description = "Run the action runner under the root user. Variable `runner_run_as` will be ingored."
+  description = "Run the action runner under the root user. Variable `runner_run_as` will be ignored."
   type        = bool
   default     = false
 }
@@ -183,7 +208,7 @@ variable "enable_runner_detailed_monitoring" {
   default     = false
 }
 
-variable "enabled_userdata" {
+variable "enable_userdata" {
   description = "Should the userdata script be enabled for the runner. Set this to false if you are using your own prebuilt AMI."
   type        = bool
   default     = true
@@ -236,34 +261,31 @@ variable "logging_kms_key_id" {
 }
 
 variable "runner_allow_prerelease_binaries" {
-  description = "Allow the runners to update to prerelease binaries."
+  description = "(Deprecated, no longer used), allow the runners to update to prerelease binaries."
   type        = bool
-  default     = false
+  default     = null
+
+  validation {
+    condition     = var.runner_allow_prerelease_binaries == null
+    error_message = "The \"runner_allow_prerelease_binaries\" variable is no longer used. GitHub runners are not released as pre-release, only releases should be used."
+  }
 }
 
 variable "block_device_mappings" {
   description = "The EC2 instance block device configuration. Takes the following keys: `device_name`, `delete_on_termination`, `volume_type`, `volume_size`, `encrypted`, `iops`, `throughput`, `kms_key_id`, `snapshot_id`."
   type = list(object({
-    delete_on_termination = bool
-    device_name           = string
-    encrypted             = bool
-    iops                  = number
-    kms_key_id            = string
-    snapshot_id           = string
-    throughput            = number
+    delete_on_termination = optional(bool, true)
+    device_name           = optional(string, "/dev/xvda")
+    encrypted             = optional(bool, true)
+    iops                  = optional(number)
+    kms_key_id            = optional(string)
+    snapshot_id           = optional(string)
+    throughput            = optional(number)
     volume_size           = number
-    volume_type           = string
+    volume_type           = optional(string, "gp3")
   }))
   default = [{
-    delete_on_termination = true
-    device_name           = "/dev/xvda"
-    encrypted             = true
-    iops                  = null
-    kms_key_id            = null
-    snapshot_id           = null
-    throughput            = null
-    volume_size           = 30
-    volume_type           = "gp3"
+    volume_size = 30
   }]
 }
 
@@ -272,43 +294,66 @@ variable "ami_filter" {
   type        = map(list(string))
   default     = null
 }
+
 variable "ami_owners" {
   description = "The list of owners used to select the AMI of action runner instances."
   type        = list(string)
   default     = ["amazon"]
 }
+
+variable "ami_id_ssm_parameter_name" {
+  description = "Externally managed SSM parameter (of data type aws:ec2:image) that contains the AMI ID to launch runner instances from. Overrides ami_filter"
+  type        = string
+  default     = null
+}
+
 variable "lambda_s3_bucket" {
   description = "S3 bucket from which to specify lambda functions. This is an alternative to providing local files directly."
+  type        = string
   default     = null
 }
 
 variable "syncer_lambda_s3_key" {
   description = "S3 key for syncer lambda function. Required if using S3 bucket to specify lambdas."
+  type        = string
   default     = null
 }
 
 variable "syncer_lambda_s3_object_version" {
   description = "S3 object version for syncer lambda function. Useful if S3 versioning is enabled on source bucket."
+  type        = string
   default     = null
 }
 
 variable "webhook_lambda_s3_key" {
   description = "S3 key for webhook lambda function. Required if using S3 bucket to specify lambdas."
+  type        = string
   default     = null
 }
 
 variable "webhook_lambda_s3_object_version" {
   description = "S3 object version for webhook lambda function. Useful if S3 versioning is enabled on source bucket."
+  type        = string
   default     = null
+}
+
+variable "webhook_lambda_apigateway_access_log_settings" {
+  type = object({
+    destination_arn = string
+    format          = string
+  })
+  default = null
 }
 
 variable "runners_lambda_s3_key" {
   description = "S3 key for runners lambda function. Required if using S3 bucket to specify lambdas."
+  type        = string
   default     = null
 }
 
 variable "runners_lambda_s3_object_version" {
   description = "S3 object version for runners lambda function. Useful if S3 versioning is enabled on source bucket."
+  type        = string
   default     = null
 }
 
@@ -383,17 +428,6 @@ variable "runner_additional_security_group_ids" {
   default     = []
 }
 
-variable "market_options" {
-  description = "DEPCRECATED: Replaced by `instance_target_capacity_type`."
-  type        = string
-  default     = null
-
-  validation {
-    condition     = anytrue([var.market_options == null])
-    error_message = "Deprecated, replaced by `instance_target_capacity_type`."
-  }
-}
-
 variable "instance_target_capacity_type" {
   description = "Default lifecycle used for runner instances, can be either `spot` or `on-demand`."
   type        = string
@@ -405,11 +439,11 @@ variable "instance_target_capacity_type" {
 }
 
 variable "instance_allocation_strategy" {
-  description = "The allocation strategy for spot instances. AWS recommends to use `capacity-optimized` however the AWS default is `lowest-price`."
+  description = "The allocation strategy for spot instances. AWS recommends to use `price-capacity-optimized` however the AWS default is `lowest-price`."
   type        = string
   default     = "lowest-price"
   validation {
-    condition     = contains(["lowest-price", "diversified", "capacity-optimized", "capacity-optimized-prioritized"], var.instance_allocation_strategy)
+    condition     = contains(["lowest-price", "diversified", "capacity-optimized", "capacity-optimized-prioritized", "price-capacity-optimized"], var.instance_allocation_strategy)
     error_message = "The instance allocation strategy does not match the allowed values."
   }
 }
@@ -418,17 +452,6 @@ variable "instance_max_spot_price" {
   description = "Max price price for spot intances per hour. This variable will be passed to the create fleet as max spot price for the fleet."
   type        = string
   default     = null
-}
-
-variable "instance_type" {
-  description = "[DEPRECATED] See instance_types."
-  type        = string
-  default     = null
-
-  validation {
-    condition     = anytrue([var.instance_type == null])
-    error_message = "Deprecated, replaced by `instance_types`."
-  }
 }
 
 variable "instance_types" {
@@ -511,28 +534,23 @@ variable "log_level" {
   }
 }
 
-variable "runner_enable_workflow_job_labels_check" {
-  description = "If set to true all labels in the workflow job even are matched agaist the custom labels and GitHub labels (os, architecture and `self-hosted`). When the labels are not matching the event is dropped at the webhook."
-  type        = bool
-  default     = false
-}
-
-variable "runner_enable_workflow_job_labels_check_all" {
-  description = "If set to true all labels in the workflow job must match the GitHub labels (os, architecture and `self-hosted`). When false if __any__ label matches it will trigger the webhook. `runner_enable_workflow_job_labels_check` must be true for this to take effect."
+variable "enable_runner_workflow_job_labels_check_all" {
+  description = "If set to true all labels in the workflow job must match the GitHub labels (os, architecture and `self-hosted`). When false if __any__ label matches it will trigger the webhook."
   type        = bool
   default     = true
 }
 
 variable "runner_ec2_tags" {
-  description = "Map of tags that will be added to the launch template instance tag specificatons."
+  description = "Map of tags that will be added to the launch template instance tag specifications."
   type        = map(string)
   default     = {}
 }
 
 variable "runner_metadata_options" {
-  description = "Metadata options for the ec2 runner instances."
+  description = "Metadata options for the ec2 runner instances. By default, the module uses metadata tags for bootstrapping the runner, only disable `instance_metadata_tags` when using custom scripts for starting the runner."
   type        = map(any)
   default = {
+    instance_metadata_tags      = "enabled"
     http_endpoint               = "enabled"
     http_tokens                 = "optional"
     http_put_response_hop_limit = 1
@@ -577,14 +595,14 @@ variable "lambda_principals" {
   default = []
 }
 
-variable "fifo_build_queue" {
+variable "enable_fifo_build_queue" {
   description = "Enable a FIFO queue to remain the order of events received by the webhook. Suggest to set to true for repo level runners."
   type        = bool
   default     = false
 }
 
 variable "redrive_build_queue" {
-  description = "Set options to attach (optional) a dead letter queue to the build queue, the queue between the webhook and the scale up lambda. You have the following options. 1. Disable by setting, `enalbed' to false. 2. Enable by setting `enabled` to `true`, `maxReceiveCount` to a number of max retries."
+  description = "Set options to attach (optional) a dead letter queue to the build queue, the queue between the webhook and the scale up lambda. You have the following options. 1. Disable by setting `enabled` to false. 2. Enable by setting `enabled` to `true`, `maxReceiveCount` to a number of max retries."
   type = object({
     enabled         = bool
     maxReceiveCount = number
@@ -610,7 +628,7 @@ variable "runner_architecture" {
 }
 
 variable "pool_lambda_timeout" {
-  description = "Time out for the pool lambda lambda in seconds."
+  description = "Time out for the pool lambda in seconds."
   type        = number
   default     = 60
 }
@@ -628,7 +646,7 @@ variable "pool_lambda_reserved_concurrent_executions" {
 }
 
 variable "pool_config" {
-  description = "The configuration for updating the pool. The `pool_size` to adjust to by the events triggered by the the `schedule_expression. For example you can configure a cron expression for week days to adjust the pool to 10 and another expression for the weekend to adjust the pool to 1."
+  description = "The configuration for updating the pool. The `pool_size` to adjust to by the events triggered by the `schedule_expression`. For example you can configure a cron expression for week days to adjust the pool to 10 and another expression for the weekend to adjust the pool to 1."
   type = list(object({
     schedule_expression = string
     size                = number
@@ -651,15 +669,75 @@ variable "disable_runner_autoupdate" {
 variable "lambda_runtime" {
   description = "AWS Lambda runtime."
   type        = string
-  default     = "nodejs16.x"
+  default     = "nodejs18.x"
 }
 
 variable "lambda_architecture" {
   description = "AWS Lambda architecture. Lambda functions using Graviton processors ('arm64') tend to have better price/performance than 'x86_64' functions. "
   type        = string
-  default     = "x86_64"
+  default     = "arm64"
   validation {
     condition     = contains(["arm64", "x86_64"], var.lambda_architecture)
     error_message = "`lambda_architecture` value is not valid, valid values are: `arm64` and `x86_64`."
   }
+}
+
+variable "enable_workflow_job_events_queue" {
+  description = "Enabling this experimental feature will create a secondory sqs queue to wich a copy of the workflow_job event will be delivered."
+  type        = bool
+  default     = false
+}
+
+variable "workflow_job_queue_configuration" {
+  description = "Configuration options for workflow job queue which is only applicable if the flag enable_workflow_job_events_queue is set to true."
+  type = object({
+    delay_seconds              = number
+    visibility_timeout_seconds = number
+    message_retention_seconds  = number
+  })
+  default = {
+    "delay_seconds" : null,
+    "visibility_timeout_seconds" : null,
+    "message_retention_seconds" : null
+  }
+}
+variable "enable_runner_binaries_syncer" {
+  description = "Option to disable the lambda to sync GitHub runner distribution, useful when using a pre-build AMI."
+  type        = bool
+  default     = true
+}
+
+variable "queue_encryption" {
+  description = "Configure how data on queues managed by the modules in ecrypted at REST. Options are encryped via SSE, non encrypted and via KMSS. By default encryptes via SSE is enabled. See for more details the Terraform `aws_sqs_queue` resource https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/sqs_queue."
+  type = object({
+    kms_data_key_reuse_period_seconds = number
+    kms_master_key_id                 = string
+    sqs_managed_sse_enabled           = bool
+  })
+  default = {
+    kms_data_key_reuse_period_seconds = null
+    kms_master_key_id                 = null
+    sqs_managed_sse_enabled           = true
+  }
+  validation {
+    condition     = var.queue_encryption == null || var.queue_encryption.sqs_managed_sse_enabled != null && var.queue_encryption.kms_master_key_id == null && var.queue_encryption.kms_data_key_reuse_period_seconds == null || var.queue_encryption.sqs_managed_sse_enabled == null && var.queue_encryption.kms_master_key_id != null
+    error_message = "Invalid configuration for `queue_encryption`. Valid configurations are encryption disabled, enabled via SSE. Or encryption via KMS."
+  }
+}
+
+variable "enable_user_data_debug_logging_runner" {
+  description = "Option to enable debug logging for user-data, this logs all secrets as well."
+  type        = bool
+  default     = false
+}
+
+variable "ssm_paths" {
+  description = "The root path used in SSM to store configuration and secreets."
+  type = object({
+    root       = optional(string, "github-action-runners")
+    app        = optional(string, "app")
+    runners    = optional(string, "runners")
+    use_prefix = optional(bool, true)
+  })
+  default = {}
 }

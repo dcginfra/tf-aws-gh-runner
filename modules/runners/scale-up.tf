@@ -35,7 +35,9 @@ resource "aws_lambda_function" "scale_up" {
       RUNNER_EXTRA_LABELS                  = lower(var.runner_extra_labels)
       RUNNER_GROUP_NAME                    = var.runner_group_name
       RUNNERS_MAXIMUM_COUNT                = var.runners_maximum_count
+      SSM_TOKEN_PATH                       = "${var.ssm_paths.root}/${var.ssm_paths.tokens}"
       SUBNET_IDS                           = join(",", var.subnet_ids)
+      AMI_ID_SSM_PARAMETER_NAME            = var.ami_id_ssm_parameter_name
     }
   }
 
@@ -105,8 +107,38 @@ resource "aws_iam_role_policy" "service_linked_role" {
   policy = templatefile("${path.module}/policies/service-linked-role-create-policy.json", { aws_partition = var.aws_partition })
 }
 
+resource "aws_iam_role_policy" "lambda_scale_up_vpc" {
+  count = length(var.lambda_subnet_ids) > 0 && length(var.lambda_security_group_ids) > 0 ? 1 : 0
+  name  = "${var.prefix}-lambda-scale-up-vpc"
+  role  = aws_iam_role.scale_up.id
+
+  policy = file("${path.module}/policies/lambda-vpc.json")
+}
+
 resource "aws_iam_role_policy_attachment" "scale_up_vpc_execution_role" {
   count      = length(var.lambda_subnet_ids) > 0 ? 1 : 0
   role       = aws_iam_role.scale_up.name
   policy_arn = "arn:${var.aws_partition}:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
+}
+
+resource "aws_iam_role_policy" "ami_id_ssm_parameter_read" {
+  count  = var.ami_id_ssm_parameter_name != null ? 1 : 0
+  name   = "${var.prefix}-ami-id-ssm-parameter-read"
+  role   = aws_iam_role.scale_up.name
+  policy = <<-JSON
+    {
+      "Version": "2012-10-17",
+      "Statement": [
+        {
+          "Effect": "Allow",
+          "Action": [
+            "ssm:GetParameter"
+          ],
+          "Resource": [
+            "arn:${var.aws_partition}:ssm:${var.aws_region}:${data.aws_caller_identity.current.account_id}:parameter/${trimprefix(var.ami_id_ssm_parameter_name, "/")}"
+          ]
+        }
+      ]
+    }
+  JSON
 }

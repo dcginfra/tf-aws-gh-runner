@@ -26,18 +26,20 @@ resource "aws_iam_role_policy" "ssm_parameters" {
   role = aws_iam_role.runner.name
   policy = templatefile("${path.module}/policies/instance-ssm-parameters-policy.json",
     {
-      arn_ssm_parameters_prefix = "arn:${var.aws_partition}:ssm:${var.aws_region}:${data.aws_caller_identity.current.account_id}:parameter/${var.prefix}-*"
-      arn_ssm_parameters_path   = "arn:${var.aws_partition}:ssm:${var.aws_region}:${data.aws_caller_identity.current.account_id}:parameter/${var.prefix}/*"
+      arn_ssm_parameters_path_tokens = "arn:${var.aws_partition}:ssm:${var.aws_region}:${data.aws_caller_identity.current.account_id}:parameter${var.ssm_paths.root}/${var.ssm_paths.tokens}"
+      arn_ssm_parameters_path_config = "arn:${var.aws_partition}:ssm:${var.aws_region}:${data.aws_caller_identity.current.account_id}:parameter${var.ssm_paths.root}/${var.ssm_paths.config}"
     }
   )
 }
 
 resource "aws_iam_role_policy" "dist_bucket" {
+  count = var.enable_runner_binaries_syncer ? 1 : 0
+
   name = "distribution-bucket"
   role = aws_iam_role.runner.name
   policy = templatefile("${path.module}/policies/instance-s3-policy.json",
     {
-      s3_arn = var.s3_bucket_runner_binaries.arn
+      s3_arn = "${var.s3_runner_binaries.arn}/${var.s3_runner_binaries.key}"
     }
   )
 }

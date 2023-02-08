@@ -28,10 +28,12 @@ interface CreateGitHubRunnerConfig {
 
 interface CreateEC2RunnerConfig {
   environment: string;
+  ssmTokenPath: string;
   subnets: string[];
   launchTemplateName: string;
   ec2instanceCriteria: RunnerInputParameters['ec2instanceCriteria'];
   numberOfRunners?: number;
+  amiIdSsmParameterName?: string;
 }
 
 function generateRunnerServiceConfig(githubRunnerConfig: CreateGitHubRunnerConfig, token: string) {
@@ -104,13 +106,6 @@ async function isJobQueued(githubInstallationClient: Octokit, payload: ActionReq
       repo: payload.repositoryName,
     });
     isQueued = jobForWorkflowRun.data.status === 'queued';
-  } else if (payload.eventType === 'check_run') {
-    const checkRun = await githubInstallationClient.checks.get({
-      check_run_id: payload.id,
-      owner: payload.repositoryOwner,
-      repo: payload.repositoryName,
-    });
-    isQueued = checkRun.data.status === 'queued';
   } else {
     throw Error(`Event ${payload.eventType} is not supported`);
   }
@@ -150,6 +145,7 @@ export async function scaleUp(eventSource: string, payload: ActionRequestMessage
   const runnerGroup = process.env.RUNNER_GROUP_NAME;
   const environment = process.env.ENVIRONMENT;
   const ghesBaseUrl = process.env.GHES_URL;
+  const ssmTokenPath = process.env.SSM_TOKEN_PATH;
   const subnets = process.env.SUBNET_IDS.split(',');
   const instanceTypes = process.env.INSTANCE_TYPES.split(',');
   const instanceTargetTargetCapacityType = process.env.INSTANCE_TARGET_CAPACITY_TYPE;
@@ -159,6 +155,7 @@ export async function scaleUp(eventSource: string, payload: ActionRequestMessage
   const instanceMaxSpotPrice = process.env.INSTANCE_MAX_SPOT_PRICE;
   const instanceAllocationStrategy = process.env.INSTANCE_ALLOCATION_STRATEGY || 'lowest-price'; // same as AWS default
   const enableJobQueuedCheck = yn(process.env.ENABLE_JOB_QUEUED_CHECK, { default: true });
+  const amiIdSsmParameterName = process.env.AMI_ID_SSM_PARAMETER_NAME;
 
   if (ephemeralEnabled && payload.eventType !== 'workflow_job') {
     logger.warn(
@@ -221,7 +218,9 @@ export async function scaleUp(eventSource: string, payload: ActionRequestMessage
           },
           environment,
           launchTemplateName,
+          ssmTokenPath,
           subnets,
+          amiIdSsmParameterName,
         },
         githubInstallationClient,
       );

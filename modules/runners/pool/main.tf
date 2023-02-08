@@ -31,9 +31,11 @@ resource "aws_lambda_function" "pool" {
       NODE_TLS_REJECT_UNAUTHORIZED         = var.config.ghes.url != null && !var.config.ghes.ssl_verify ? 0 : 1
       PARAMETER_GITHUB_APP_ID_NAME         = var.config.github_app_parameters.id.name
       PARAMETER_GITHUB_APP_KEY_BASE64_NAME = var.config.github_app_parameters.key_base64.name
+      RUNNER_BOOT_TIME_IN_MINUTES          = var.config.runner.boot_time_in_minutes
       RUNNER_EXTRA_LABELS                  = var.config.runner.extra_labels
       RUNNER_GROUP_NAME                    = var.config.runner.group_name
       RUNNER_OWNER                         = var.config.runner.pool_owner
+      SSM_TOKEN_PATH                       = var.config.ssm_token_path
       SUBNET_IDS                           = join(",", var.config.subnet_ids)
     }
   }
@@ -79,6 +81,14 @@ resource "aws_iam_role_policy" "pool_logging" {
   policy = templatefile("${path.module}/../policies/lambda-cloudwatch.json", {
     log_group_arn = aws_cloudwatch_log_group.pool.arn
   })
+}
+
+resource "aws_iam_role_policy" "lambda_pool_vpc" {
+  count = length(var.config.lambda.subnet_ids) > 0 && length(var.config.lambda.security_group_ids) > 0 ? 1 : 0
+  name  = "${var.config.prefix}-lambda-pool-vpc"
+  role  = aws_iam_role.pool.id
+
+  policy = file("${path.module}/../policies/lambda-vpc.json")
 }
 
 resource "aws_iam_role_policy_attachment" "pool_vpc_execution_role" {

@@ -1,4 +1,5 @@
 import { EC2, SSM } from 'aws-sdk';
+import moment from 'moment';
 
 import { LogFields, logger as rootLogger } from '../logger';
 import ScaleError from './../scale-runners/ScaleError';
@@ -33,6 +34,7 @@ export interface RunnerInputParameters {
   environment: string;
   runnerType: 'Org' | 'Repo';
   runnerOwner: string;
+  ssmTokenPath: string;
   subnets: string[];
   launchTemplateName: string;
   ec2instanceCriteria: {
@@ -42,26 +44,47 @@ export interface RunnerInputParameters {
     instanceAllocationStrategy: EC2.SpotAllocationStrategy;
   };
   numberOfRunners?: number;
+  amiIdSsmParameterName?: string;
+}
+
+interface Ec2Filter {
+  Name: string;
+  Values: string[];
 }
 
 export async function listEC2Runners(filters: ListRunnerFilters | undefined = undefined): Promise<RunnerList[]> {
-  const ec2Statuses = filters?.statuses ? filters.statuses : ['running', 'pending'];
-  const ec2 = new EC2();
-  const ec2Filters = [
-    { Name: 'tag:Application', Values: ['github-action-runner'] },
-    { Name: 'instance-state-name', Values: ec2Statuses },
-  ];
+  const ec2Filters = constructFilters(filters);
+  const runners: RunnerList[] = [];
+  for (const filter of ec2Filters) {
+    runners.push(...(await getRunners(filter)));
+  }
+  return runners;
+}
 
+function constructFilters(filters?: ListRunnerFilters): Ec2Filter[][] {
+  const ec2Statuses = filters?.statuses ? filters.statuses : ['running', 'pending'];
+  const ec2Filters: Ec2Filter[][] = [];
+  const ec2FiltersBase = [{ Name: 'instance-state-name', Values: ec2Statuses }];
   if (filters) {
     if (filters.environment !== undefined) {
-      ec2Filters.push({ Name: 'tag:ghr:environment', Values: [filters.environment] });
+      ec2FiltersBase.push({ Name: 'tag:ghr:environment', Values: [filters.environment] });
     }
     if (filters.runnerType && filters.runnerOwner) {
-      ec2Filters.push({ Name: `tag:Type`, Values: [filters.runnerType] });
-      ec2Filters.push({ Name: `tag:Owner`, Values: [filters.runnerOwner] });
+      ec2FiltersBase.push({ Name: `tag:Type`, Values: [filters.runnerType] });
+      ec2FiltersBase.push({ Name: `tag:Owner`, Values: [filters.runnerOwner] });
     }
   }
 
+  for (const key of ['tag:ghr:Application']) {
+    const filter = [...ec2FiltersBase];
+    filter.push({ Name: key, Values: ['github-action-runner'] });
+    ec2Filters.push(filter);
+  }
+  return ec2Filters;
+}
+
+async function getRunners(ec2Filters: Ec2Filter[]): Promise<RunnerList[]> {
+  const ec2 = new EC2();
   const runners: RunnerList[] = [];
   let nextToken;
   let hasNext = true;
@@ -107,17 +130,27 @@ export async function terminateRunner(instanceId: string): Promise<void> {
   logger.info(`Runner ${instanceId} has been terminated.`, LogFields.print());
 }
 
-function generateFleeOverrides(
+function generateFleetOverrides(
   subnetIds: string[],
   instancesTypes: string[],
+  amiId?: string,
 ): EC2.FleetLaunchTemplateOverridesListRequest {
+  type Override = {
+    SubnetId: string;
+    InstanceType: string;
+    ImageId?: string;
+  };
   const result: EC2.FleetLaunchTemplateOverridesListRequest = [];
   subnetIds.forEach((s) => {
     instancesTypes.forEach((i) => {
-      result.push({
+      const item: Override = {
         SubnetId: s,
         InstanceType: i,
-      });
+      };
+      if (amiId) {
+        item.ImageId = amiId;
+      }
+      result.push(item);
     });
   });
   return result;
@@ -127,6 +160,27 @@ export async function createRunner(runnerParameters: RunnerInputParameters): Pro
   logger.debug('Runner configuration: ' + JSON.stringify(runnerParameters), LogFields.print());
 
   const ec2 = new EC2();
+  const ssm = new SSM();
+
+  let amiIdOverride = undefined;
+
+  if (runnerParameters.amiIdSsmParameterName) {
+    logger.debug(`Looking up runner AMI ID from SSM parameter: ${runnerParameters.amiIdSsmParameterName}`);
+    try {
+      const result: AWS.SSM.GetParameterResult = await ssm
+        .getParameter({ Name: runnerParameters.amiIdSsmParameterName })
+        .promise();
+      amiIdOverride = result.Parameter?.Value;
+    } catch (e) {
+      logger.error(
+        `Failed to lookup runner AMI ID from SSM parameter: ${runnerParameters.amiIdSsmParameterName}. ` +
+          'Please ensure that the given parameter exists on this region and contains a valid runner AMI ID',
+        e,
+      );
+      throw e;
+    }
+  }
+
   const numberOfRunners = runnerParameters.numberOfRunners ? runnerParameters.numberOfRunners : 1;
 
   let fleet: AWS.EC2.CreateFleetResult;
@@ -140,15 +194,16 @@ export async function createRunner(runnerParameters: RunnerInputParameters): Pro
               LaunchTemplateName: runnerParameters.launchTemplateName,
               Version: '$Default',
             },
-            Overrides: generateFleeOverrides(
+            Overrides: generateFleetOverrides(
               runnerParameters.subnets,
               runnerParameters.ec2instanceCriteria.instanceTypes,
+              amiIdOverride,
             ),
           },
         ],
         SpotOptions: {
           MaxTotalPrice: runnerParameters.ec2instanceCriteria.maxSpotPrice,
-          AllocationStrategy: 'capacity-optimized',
+          AllocationStrategy: runnerParameters.ec2instanceCriteria.instanceAllocationStrategy,
         },
         TargetCapacitySpecification: {
           TotalTargetCapacity: numberOfRunners,
@@ -158,7 +213,7 @@ export async function createRunner(runnerParameters: RunnerInputParameters): Pro
           {
             ResourceType: 'instance',
             Tags: [
-              { Key: 'Application', Value: 'github-action-runner' },
+              { Key: 'ghr:Application', Value: 'github-action-runner' },
               { Key: 'Type', Value: runnerParameters.runnerType },
               { Key: 'Owner', Value: runnerParameters.runnerOwner },
             ],
@@ -202,14 +257,29 @@ export async function createRunner(runnerParameters: RunnerInputParameters): Pro
 
   logger.info('Created instance(s): ', instances.join(','), LogFields.print());
 
-  const ssm = new SSM();
+  const delay = async (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+  const ssmParameterStoreMaxThroughput = 40;
+  const isDelay = instances.length >= ssmParameterStoreMaxThroughput ? true : false;
+
   for (const instance of instances) {
     await ssm
       .putParameter({
-        Name: `${runnerParameters.environment}-${instance}`,
+        Name: `${runnerParameters.ssmTokenPath}/${instance}`,
         Value: runnerParameters.runnerServiceConfig.join(' '),
         Type: 'SecureString',
       })
       .promise();
+
+    if (isDelay) {
+      // Delay to prevent AWS ssm rate limits by being within the max throughput limit
+      await delay(25);
+    }
   }
+}
+
+// If launchTime is undefined, this will return false
+export function bootTimeExceeded(ec2Runner: { launchTime?: Date }): boolean {
+  const runnerBootTimeInMinutes = process.env.RUNNER_BOOT_TIME_IN_MINUTES;
+  const launchTimePlusBootTime = moment(ec2Runner.launchTime).utc().add(runnerBootTimeInMinutes, 'minutes');
+  return launchTimePlusBootTime < moment(new Date()).utc();
 }

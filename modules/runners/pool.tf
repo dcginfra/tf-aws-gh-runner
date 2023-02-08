@@ -37,14 +37,16 @@ module "pool" {
     runner = {
       disable_runner_autoupdate = var.disable_runner_autoupdate
       ephemeral                 = var.enable_ephemeral_runners
+      boot_time_in_minutes      = var.runner_boot_time_in_minutes
       extra_labels              = var.runner_extra_labels
       launch_template           = aws_launch_template.runner
       group_name                = var.runner_group_name
       pool_owner                = var.pool_runner_owner
       role                      = aws_iam_role.runner
     }
-    subnet_ids = var.subnet_ids
-    tags       = local.tags
+    subnet_ids     = var.subnet_ids
+    ssm_token_path = "${var.ssm_paths.root}/${var.ssm_paths.tokens}"
+    tags           = local.tags
   }
 
   aws_partition = var.aws_partition

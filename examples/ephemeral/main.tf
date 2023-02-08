@@ -7,14 +7,19 @@ resource "random_id" "random" {
   byte_length = 20
 }
 
-data "aws_caller_identity" "current" {}
+module "base" {
+  source = "../base"
+
+  prefix     = local.environment
+  aws_region = local.aws_region
+}
 
 module "runners" {
   source                          = "../../"
   create_service_linked_role_spot = true
   aws_region                      = local.aws_region
-  vpc_id                          = module.vpc.vpc_id
-  subnet_ids                      = module.vpc.private_subnets
+  vpc_id                          = module.base.vpc.vpc_id
+  subnet_ids                      = module.base.vpc.private_subnets
 
   prefix = local.environment
   tags = {
@@ -22,8 +27,8 @@ module "runners" {
   }
 
   github_app = {
-    key_base64     = var.github_app_key_base64
-    id             = var.github_app_id
+    key_base64     = var.github_app.key_base64
+    id             = var.github_app.id
     webhook_secret = random_id.random.hex
   }
 
@@ -34,9 +39,6 @@ module "runners" {
 
   enable_organization_runners = true
   runner_extra_labels         = "default,example"
-
-  # enable workflow labels check
-  # runner_enable_workflow_job_labels_check = true
 
   # enable access to the runners via SSM
   enable_ssm_on_runners = true
@@ -68,8 +70,9 @@ module "runners" {
   enable_job_queued_check = true
 
   # configure your pre-built AMI
-  # enabled_userdata = false
+  # enable_userdata = false
   # ami_filter       = { name = ["github-runner-amzn2-x86_64-*"] }
+  # data "aws_caller_identity" "current" {}
   # ami_owners       = [data.aws_caller_identity.current.account_id]
 
   # Enable logging

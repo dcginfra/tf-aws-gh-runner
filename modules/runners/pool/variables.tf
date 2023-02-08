@@ -29,6 +29,7 @@ variable "config" {
     runner = object({
       disable_runner_autoupdate = bool
       ephemeral                 = bool
+      boot_time_in_minutes      = number
       extra_labels              = string
       launch_template = object({
         name = string
@@ -51,6 +52,7 @@ variable "config" {
     role_permissions_boundary = string
     kms_key_arn               = string
     role_path                 = string
+    ssm_token_path            = string
   })
 }
 
