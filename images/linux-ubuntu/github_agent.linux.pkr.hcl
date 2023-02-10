@@ -10,13 +10,13 @@ packer {
 variable "action_runner_url" {
   description = "The URL to the tarball of the action runner"
   type        = string
-  default     = "https://github.com/actions/runner/releases/download/v2.292.0/actions-runner-linux-x64-2.292.0.tar.gz"
+  default     = "https://github.com/actions/runner/releases/download/v2.299.2/actions-runner-linux-x64-2.299.2.tar.gz"
 }
 
 variable "region" {
   description = "The region to build the image in"
   type        = string
-  default     = "us-east-2"
+  default     = "eu-west-1"
 }
 
 source "amazon-ebs" "githubrunner" {
