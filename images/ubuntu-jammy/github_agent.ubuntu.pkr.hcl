@@ -10,7 +10,7 @@ packer {
 variable "runner_version" {
   description = "The version (no v prefix) of the runner software to install https://github.com/actions/runner/releases"
   type        = string
-  default     = "2.294.0"
+  default     = "2.303.0"
 }
 
 variable "region" {
@@ -143,6 +143,13 @@ build {
       "sudo curl -f https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip -o awscliv2.zip",
       "unzip awscliv2.zip",
       "sudo ./aws/install",
+      "curl -fsSL https://deb.nodesource.com/setup_16.x | sudo -E bash -",
+      "sudo apt-get install -y build-essential clang cmake gcc git libc-dev libssl-dev libzmq3-dev nodejs openssh-client pkg-config python3",
+      "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y",
+      ". \"$HOME/.cargo/env\"",
+      "rustup toolchain install stable",
+      "rustup target add wasm32-unknown-unknown --toolchain stable",
+      "cargo install -f wasm-bindgen-cli"
     ], var.custom_shell_commands)
   }
 
