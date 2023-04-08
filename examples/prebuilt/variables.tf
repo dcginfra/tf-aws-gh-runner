@@ -26,12 +26,12 @@ variable "runner_run_as" {
 
 variable "ami_name_filter" {
   type    = string
-  default = "github-runner-ubuntu-x86_64-2023*"
+  default = "github-runner-ubuntu-jammy-amd64-2023*"
 }
 
 variable "aws_region" {
   type    = string
-  default = "eu-west-1"
+  default = "eu-north-1"
 }
 
 variable "instance_types" {
