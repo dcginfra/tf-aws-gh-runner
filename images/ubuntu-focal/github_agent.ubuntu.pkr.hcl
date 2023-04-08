@@ -127,6 +127,7 @@ build {
       "DEBIAN_FRONTEND=noninteractive"
     ]
     inline = concat([
+      "sudo cloud-init status --wait",
       "sudo apt-get -y update",
       "sudo apt-get -y install ca-certificates curl gnupg lsb-release",
       "sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg",
@@ -170,7 +171,7 @@ build {
 
   provisioner "file" {
     content = templatefile("../start-runner.sh", {
-      start_runner = templatefile("../../modules/runners/templates/start-runner.sh", {})
+      start_runner = templatefile("../../modules/runners/templates/start-runner.sh", { metadata_tags = "enabled" })
     })
     destination = "/tmp/start-runner.sh"
   }

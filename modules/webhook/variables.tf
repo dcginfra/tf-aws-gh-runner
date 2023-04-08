@@ -1,3 +1,15 @@
+variable "lambda_subnet_ids" {
+  description = "List of subnets in which the action runners will be launched, the subnets needs to be subnets in the `vpc_id`."
+  type        = list(string)
+  default     = []
+}
+
+variable "lambda_security_group_ids" {
+  description = "List of security group IDs associated with the Lambda function."
+  type        = list(string)
+  default     = []
+}
+
 variable "environment" {
   description = "A name that identifies the environment, used as prefix and for tagging."
   type        = string
@@ -119,14 +131,10 @@ variable "kms_key_arn" {
 variable "log_type" {
   description = "Logging format for lambda logging. Valid values are 'json', 'pretty', 'hidden'. "
   type        = string
-  default     = "pretty"
+  default     = null
   validation {
-    condition = anytrue([
-      var.log_type == "json",
-      var.log_type == "pretty",
-      var.log_type == "hidden",
-    ])
-    error_message = "`log_type` value not valid. Valid values are 'json', 'pretty', 'hidden'."
+    condition     = var.log_type == null
+    error_message = "DEPRECATED: `log_type` is not longer supported."
   }
 }
 
@@ -136,15 +144,16 @@ variable "log_level" {
   default     = "info"
   validation {
     condition = anytrue([
-      var.log_level == "silly",
-      var.log_level == "trace",
       var.log_level == "debug",
       var.log_level == "info",
       var.log_level == "warn",
       var.log_level == "error",
-      var.log_level == "fatal",
     ])
-    error_message = "`log_level` value not valid. Valid values are 'silly', 'trace', 'debug', 'info', 'warn', 'error', 'fatal'."
+    error_message = "`log_level` value not valid. Valid values are 'debug', 'info', 'warn', 'error'."
+  }
+  validation {
+    condition     = !contains(["silly", "trace", "fatal"], var.log_level)
+    error_message = "PLEASE MIGRATE: The following log levels: 'silly', 'trace' and 'fatal' are not longeer supported."
   }
 }
 
@@ -152,6 +161,12 @@ variable "lambda_runtime" {
   description = "AWS Lambda runtime."
   type        = string
   default     = "nodejs18.x"
+}
+
+variable "aws_partition" {
+  description = "(optional) partition for the base arn if not 'aws'"
+  type        = string
+  default     = "aws"
 }
 
 variable "lambda_architecture" {

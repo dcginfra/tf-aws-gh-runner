@@ -20,6 +20,9 @@ Write-Host  "Retrieved tags from AWS API"
 $environment=$tags.Tags.where( {$_.Key -eq 'ghr:environment'}).value
 Write-Host  "Reteieved ghr:environment tag - ($environment)"
 
+$runner_name_prefix=$tags.Tags.where( {$_.Key -eq 'ghr:runner_name_prefix'}).value
+Write-Host  "Reteieved ghr:runner_name_prefix tag - ($runner_name_prefix)"
+
 $ssm_config_path=$tags.Tags.where( {$_.Key -eq 'ghr:ssm_config_path'}).value
 Write-Host  "Retrieved ghr:ssm_config_path tag - ($ssm_config_path)"
 
@@ -42,7 +45,7 @@ Write-Host  "Retrieved $ssm_config_path/token_path parameter - ($token_path)"
 if ($enable_cloudwatch_agent -eq "true")
 {
     Write-Host  "Enabling CloudWatch Agent"
-    & 'C:\Program Files\Amazon\AmazonCloudWatchAgent\amazon-cloudwatch-agent-ctl.ps1' -a fetch-config -m ec2 -s -c "ssm:$environment-cloudwatch_agent_config_runner"
+    & 'C:\Program Files\Amazon\AmazonCloudWatchAgent\amazon-cloudwatch-agent-ctl.ps1' -a fetch-config -m ec2 -s -c "ssm:$ssm_config_path/cloudwatch_agent_config_runner"
 }
 
 ## Configure the runner
@@ -91,7 +94,7 @@ foreach ($group in @("Administrators", "docker-users")) {
 Set-ItemProperty HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System -Name ConsentPromptBehaviorAdmin -Value 0 -Force
 Write-Host "Disabled User Access Control (UAC)"
 
-$configCmd = ".\config.cmd --unattended --name $InstanceId --work `"_work`" $config"
+$configCmd = ".\config.cmd --unattended --name $runner_name_prefix$InstanceId --work `"_work`" $config"
 Write-Host "Configure GH Runner as user $run_as"
 Invoke-Expression $configCmd
 
@@ -100,7 +103,7 @@ Write-Host "Starting the runner as user $run_as"
 $jsonBody = @(
     @{
         group='Runner Image'
-        details="AMI id: $ami_id"
+        detail="AMI id: $ami_id"
     }
 )
 ConvertTo-Json -InputObject $jsonBody | Set-Content -Path "$pwd\.setup_info"

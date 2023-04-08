@@ -23,14 +23,15 @@ resource "aws_lambda_function" "syncer" {
 
   environment {
     variables = {
-      GITHUB_RUNNER_ARCHITECTURE = var.runner_architecture
-      GITHUB_RUNNER_OS           = local.gh_binary_os_label[var.runner_os]
-      LOG_LEVEL                  = var.log_level
-      LOG_TYPE                   = var.log_type
-      S3_BUCKET_NAME             = aws_s3_bucket.action_dist.id
-      S3_OBJECT_KEY              = local.action_runner_distribution_object_key
-      S3_SSE_ALGORITHM           = try(var.server_side_encryption_configuration.rule.apply_server_side_encryption_by_default.sse_algorithm, null)
-      S3_SSE_KMS_KEY_ID          = try(var.server_side_encryption_configuration.rule.apply_server_side_encryption_by_default.kms_master_key_id, null)
+      ENVIRONMENT                 = var.prefix
+      GITHUB_RUNNER_ARCHITECTURE  = var.runner_architecture
+      GITHUB_RUNNER_OS            = local.gh_binary_os_label[var.runner_os]
+      LOG_LEVEL                   = var.log_level
+      POWERTOOLS_LOGGER_LOG_EVENT = var.log_level == "debug" ? "true" : "false"
+      S3_BUCKET_NAME              = aws_s3_bucket.action_dist.id
+      S3_OBJECT_KEY               = local.action_runner_distribution_object_key
+      S3_SSE_ALGORITHM            = try(var.server_side_encryption_configuration.rule.apply_server_side_encryption_by_default.sse_algorithm, null)
+      S3_SSE_KMS_KEY_ID           = try(var.server_side_encryption_configuration.rule.apply_server_side_encryption_by_default.kms_master_key_id, null)
     }
   }
 
@@ -121,11 +122,18 @@ resource "aws_cloudwatch_event_rule" "syncer" {
   name                = "${var.prefix}-syncer-rule"
   schedule_expression = var.lambda_schedule_expression
   tags                = var.tags
+  is_enabled          = var.enable_event_rule_binaries_syncer
 }
 
 resource "aws_cloudwatch_event_target" "syncer" {
   rule = aws_cloudwatch_event_rule.syncer.name
   arn  = aws_lambda_function.syncer.arn
+}
+
+resource "aws_iam_role_policy_attachment" "syncer_vpc_execution_role" {
+  count      = length(var.lambda_subnet_ids) > 0 ? 1 : 0
+  role       = aws_iam_role.syncer_lambda.name
+  policy_arn = "arn:${var.aws_partition}:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
 }
 
 resource "aws_lambda_permission" "syncer" {
@@ -173,3 +181,5 @@ resource "aws_lambda_permission" "on_deploy" {
   source_account = data.aws_caller_identity.current.account_id
   source_arn     = aws_s3_bucket.action_dist.arn
 }
+
+
