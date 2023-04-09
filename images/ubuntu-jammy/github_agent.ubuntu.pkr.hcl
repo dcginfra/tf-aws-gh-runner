@@ -144,7 +144,7 @@ build {
       "unzip awscliv2.zip",
       "sudo ./aws/install",
       "curl -fsSL https://deb.nodesource.com/setup_16.x | sudo -E bash -",
-      "sudo apt-get install -y build-essential clang cmake gcc git libc-dev libssl-dev libzmq3-dev nodejs openssh-client pkg-config python3",
+      "sudo apt-get install -y automake autotools-dev bsdmainutils build-essential clang cmake gcc git libc-dev libssl-dev libtool libzmq3-dev nodejs openssh-client pkg-config python3",
       "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y",
       ". \"$HOME/.cargo/env\"",
       "rustup toolchain install stable",
