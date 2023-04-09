@@ -31,7 +31,7 @@ variable "ami_name_filter" {
 
 variable "aws_region" {
   type    = string
-  default = "eu-north-1"
+  default = "eu-west-1"
 }
 
 variable "instance_types" {
