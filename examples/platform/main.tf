@@ -40,7 +40,7 @@ module "runners" {
 
   enable_ephemeral_runners = true
   runners_maximum_count = 15
-  lambda_timeout_scale_down = 10
+  runners_scale_down_lambda_timeout = 10
 
   block_device_mappings = [{
     # Set the block device name for Ubuntu root device
