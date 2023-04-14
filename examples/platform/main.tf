@@ -39,7 +39,7 @@ module "runners" {
   runner_extra_labels = "default,example"
 
   enable_ephemeral_runners = true
-  runners_maximum_count = 10
+  runners_maximum_count = 15
 
   block_device_mappings = [{
     # Set the block device name for Ubuntu root device
