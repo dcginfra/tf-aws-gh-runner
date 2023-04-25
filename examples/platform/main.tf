@@ -80,3 +80,65 @@ module "runners" {
   # override scaling down
   scale_down_schedule_expression = "cron(* * * * ? *)"
 }
+
+data "aws_ami" "docker_cache_ami" {
+  most_recent = true
+
+  filter {
+    name   = "name"
+    values = ["ubuntu/images/hvm-ssd/ubuntu-jammy-22.04-arm64-server-*"]
+  }
+
+  filter {
+    name   = "virtualization-type"
+    values = ["hvm"]
+  }
+
+  owners = ["099720109477"] # Canonical
+}
+
+data "aws_security_group" "runner_sg" {
+  tags = {
+    "ghr:environment" = local.environment
+  }
+}
+
+resource "aws_security_group" "ssh_access_cache" {
+  name_prefix = "${local.environment}-ssh-access-cache-sg"
+
+  vpc_id = module.base.vpc.vpc_id
+
+  ingress {
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name = "ssh-access-cache"
+  }
+}
+
+resource "aws_instance" "docker_cache" {
+  ami           = data.aws_ami.docker_cache_ami.id
+  instance_type = "t4g.micro"
+
+  subnet_id = module.base.vpc.public_subnets[0]
+  vpc_security_group_ids = [
+    data.aws_security_group.runner_sg.id,
+    aws_security_group.ssh_access_cache.id
+    ]
+
+  associate_public_ip_address = true
+  key_name = "dashdev.rsa"
+
+  root_block_device {
+    volume_type = "gp3"
+    volume_size = 20
+  }
+
+  tags = {
+    Name = "platform-docker-cache-tf"
+  }
+}
