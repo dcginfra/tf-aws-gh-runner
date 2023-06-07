@@ -92,8 +92,8 @@ resource "aws_instance" "docker_cache" {
                                 echo -e "---\n\nversion: 0.1\nlog:\n  level: info\n  fields:\n    service: registry\nstorage:\n  cache:\n    blobdescriptor: inmemory\n  filesystem:\n    rootdirectory: /var/lib/registry\nhttp:\n  addr: :5000\n  headers:\n    X-Content-Type-Options: [nosniff]\nproxy:\n  remoteurl: https://registry-1.docker.io" > /home/ubuntu/config.yml
                                 mkdir /home/ubuntu/registry
                                 docker run -d -p 443:5000 --restart=always --name=through-cache -v /home/ubuntu/config.yml:/etc/docker/registry/config.yml -v /home/ubuntu/registry:/var/lib/registry registry:2
-                                cd /tmp && wget https://s3.eu-west-1.amazonaws.com/amazoncloudwatch-agent-eu-west-1/ubuntu/amd64/latest/amazon-cloudwatch-agent.deb
-                                dpkg -i -E ./amazon-cloudwatch-agent.deb
+                                wget -P /tmp https://s3.eu-west-1.amazonaws.com/amazoncloudwatch-agent-eu-west-1/ubuntu/amd64/latest/amazon-cloudwatch-agent.deb
+                                dpkg -i -E /tmp/amazon-cloudwatch-agent.deb
                                 EOF
 
   root_block_device {
