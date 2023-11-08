@@ -105,3 +105,48 @@ resource "aws_iam_openid_connect_provider" "github" {
   thumbprint_list = ["1b511abead59c6ce207077c0bf0e0043b1382612"]
   tags            = local.tags
 }
+module "docker_cache" {
+  source = "./docker_cache"
+
+  config = {
+    prefix                    = local.environment
+    tags                      = local.tags
+    vpc_id                    = module.base.vpc.vpc_id
+    subnet_ids                = module.base.vpc.private_subnets
+  }
+}
+
+module "s3_endpoint" {
+  source = "./s3_endpoint"
+
+  config = {
+    aws_region = local.aws_region
+    vpc_id     = module.base.vpc.vpc_id
+  }
+}
+
+module "s3_cache" {
+  source = "./s3_cache"
+
+  config = {
+    aws_region                 = local.aws_region
+    cache_bucket_oidc_role = {
+      arn = aws_iam_role.oidc_role.arn
+    }
+    expiration_days            = 3
+    prefix                     = local.environment
+    runner_instance_role = {
+      arn = aws_iam_role.runner.arn
+    }
+    tags   = local.tags
+    vpc_id = module.base.vpc.vpc_id
+  }
+}
+
+module "ecr_cache" {
+  source = "./ecr_cache"
+
+  config = {
+    tags = local.tags
+  }
+}
