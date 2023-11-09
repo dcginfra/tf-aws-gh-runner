@@ -125,6 +125,10 @@ module "s3_endpoint" {
   }
 }
 
+locals {
+  runner_arns_list = [for runner in module.multi-runner.runners_map : runner.role_runner.arn]
+}
+
 module "s3_cache" {
   source = "./s3_cache"
 
@@ -140,6 +144,11 @@ module "s3_cache" {
     }
     tags   = local.tags
     vpc_id = module.base.vpc.vpc_id
+    aws_region       = local.aws_region
+    prefix           = local.environment
+    runner_role_arns = local.runner_arns_list
+    tags             = local.tags
+    vpc_id           = module.base.vpc.vpc_id
   }
 }
 
@@ -148,5 +157,17 @@ module "ecr_cache" {
 
   config = {
     tags = local.tags
+  }
+}
+
+module "docker_cache" {
+  source = "./docker_cache"
+
+  config = {
+    prefix     = local.environment
+    tags       = local.tags
+    vpc_id     = module.base.vpc.vpc_id
+    subnet_ids = module.base.vpc.private_subnets
+    # lambda_security_group_ids = var.lambda_security_group_ids
   }
 }
