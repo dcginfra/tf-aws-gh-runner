@@ -168,6 +168,5 @@ module "docker_cache" {
     tags       = local.tags
     vpc_id     = module.base.vpc.vpc_id
     subnet_ids = module.base.vpc.private_subnets
-    # lambda_security_group_ids = var.lambda_security_group_ids
   }
 }
