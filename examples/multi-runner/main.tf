@@ -170,3 +170,15 @@ module "docker_cache" {
     subnet_ids = module.base.vpc.private_subnets
   }
 }
+
+module "webhook_github_app" {
+  source     = "../../modules/webhook-github-app"
+  depends_on = [module.runners]
+
+  github_app = {
+    key_base64     = var.github_app.key_base64
+    id             = var.github_app.id
+    webhook_secret = random_id.random.hex
+  }
+  webhook_endpoint = module.runners.webhook.endpoint
+}
