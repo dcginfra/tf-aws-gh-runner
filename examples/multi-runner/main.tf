@@ -102,7 +102,7 @@ module "webhook_github_app" {
     id             = var.github_app.id
     webhook_secret = random_id.random.hex
   }
-  webhook_endpoint = module.runners.webhook.endpoint
+  webhook_endpoint = module.multi-runner.webhook.endpoint
 }
 
 
@@ -123,17 +123,6 @@ module "docker_cache" {
   }
 }
 
-
-
-module "s3_endpoint" {
-  source = "./s3_cache"
-
-  config = {
-    aws_region = local.aws_region
-    vpc_id     = module.base.vpc.vpc_id
-  }
-}
-
 locals {
   runner_arns_list = [for runner in module.multi-runner.runners_map : runner.role_runner.arn]
 }
@@ -149,7 +138,7 @@ module "s3_cache" {
     expiration_days            = 3
     prefix                     = local.environment
     runner_instance_role = {
-      arn = aws_iam_role.runner.arn
+      arn = aws_iam_role.multi-runner.arn
     }
     tags   = local.tags
     vpc_id = module.base.vpc.vpc_id
@@ -168,5 +157,3 @@ module "ecr_cache" {
     tags = local.tags
   }
 }
-
-
