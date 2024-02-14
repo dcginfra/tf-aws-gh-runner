@@ -5,6 +5,11 @@ variable "github_app" {
     id         = string
     key_base64 = string
   })
+
+   default = {
+     id         = ""
+     key_base64 = ""
+  }
 }
 
 variable "environment" {

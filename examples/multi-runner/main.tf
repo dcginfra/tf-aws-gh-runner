@@ -30,7 +30,7 @@ module "base" {
   aws_region = local.aws_region
 }
 
-module "runners" {
+module "multi-runner" {
   source              = "../../modules/multi-runner"
   multi_runner_config = local.multi_runner_config
   #  Alternative to loading runner configuration from Yaml files is using static configuration:
@@ -63,11 +63,16 @@ module "runners" {
   runners_scale_down_lambda_timeout = 60
   prefix                            = local.environment
   tags                              = local.tags
+  
+  # commenting out becasue we don't need this feature
+
   github_app = {
     key_base64     = var.github_app.key_base64
     id             = var.github_app.id
     webhook_secret = random_id.random.hex
   }
+
+
   # enable this section for tracing
   # tracing_config = {
   #   mode                  = "Active"
@@ -91,6 +96,7 @@ module "webhook_github_app" {
   source     = "../../modules/webhook-github-app"
   depends_on = [module.runners]
 
+  
   github_app = {
     key_base64     = var.github_app.key_base64
     id             = var.github_app.id
@@ -98,6 +104,7 @@ module "webhook_github_app" {
   }
   webhook_endpoint = module.runners.webhook.endpoint
 }
+
 
 resource "aws_iam_openid_connect_provider" "github" {
   url             = "https://token.actions.githubusercontent.com"
@@ -116,8 +123,10 @@ module "docker_cache" {
   }
 }
 
+
+
 module "s3_endpoint" {
-  source = "./s3_endpoint"
+  source = "./s3_cache"
 
   config = {
     aws_region = local.aws_region
@@ -160,25 +169,4 @@ module "ecr_cache" {
   }
 }
 
-module "docker_cache" {
-  source = "./docker_cache"
 
-  config = {
-    prefix     = local.environment
-    tags       = local.tags
-    vpc_id     = module.base.vpc.vpc_id
-    subnet_ids = module.base.vpc.private_subnets
-  }
-}
-
-module "webhook_github_app" {
-  source     = "../../modules/webhook-github-app"
-  depends_on = [module.multi-runner]
-
-  github_app = {
-    key_base64     = var.github_app.key_base64
-    id             = var.github_app.id
-    webhook_secret = random_id.random.hex
-  }
-  webhook_endpoint = module.multi-runner.webhook.endpoint
-}
