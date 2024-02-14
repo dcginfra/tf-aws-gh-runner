@@ -94,7 +94,7 @@ module "multi-runner" {
 
 module "webhook_github_app" {
   source     = "../../modules/webhook-github-app"
-  depends_on = [module.runners]
+  depends_on = [module.multi-runner]
 
   
   github_app = {
