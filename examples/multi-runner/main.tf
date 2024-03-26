@@ -2,6 +2,7 @@ data "aws_caller_identity" "current" {}
 
 locals {
   environment = var.environment != null ? var.environment : "multi-runner"
+<<<<<<< HEAD
   aws_region  = "eu-west-1"
   tags        = { Project = "multi-runner" }
 
@@ -15,6 +16,30 @@ locals {
           account_id = data.aws_caller_identity.current.account_id
         }
       )
+=======
+  aws_region  = var.aws_region
+
+  # Load runner configurations from Yaml files
+  multi_runner_config_files = {
+    for c in fileset("${path.module}/templates/runner-configs", "*.yaml") :
+
+    trimsuffix(c, ".yaml") => yamldecode(file("${path.module}/templates/runner-configs/${c}"))
+  }
+  multi_runner_config = {
+    for k, v in local.multi_runner_config_files :
+
+    k => merge(
+      v,
+      {
+        runner_config = merge(
+          v.runner_config,
+          {
+            subnet_ids = lookup(v.runner_config, "subnet_ids", null) != null ? [module.base.vpc.private_subnets[0]] : null
+            vpc_id     = lookup(v.runner_config, "vpc_id", null) != null ? module.base.vpc.vpc_id : null
+          }
+        )
+      }
+>>>>>>> upstream/main
     )
   }
 }
@@ -63,6 +88,19 @@ module "multi-runner" {
 
   # Enable debug logging for the lambda functions
   # log_level = "debug"
+
+  # Enable spot termination watcher
+  # spot_instance_termination_watcher = {
+  #   enable = true
+  # }
+
+  # Enable to track the spot instance termination warning
+  # instance_termination_watcher = {
+  #   enable         = true
+  #   enable_metric = {
+  #     spot_warning = true
+  #   }
+  # }
 }
 
 locals {

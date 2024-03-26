@@ -47,6 +47,7 @@ variable "multi_runner_config" {
       ebs_optimized                           = optional(bool, false)
       enable_ephemeral_runners                = optional(bool, false)
       enable_job_queued_check                 = optional(bool, null)
+      enable_on_demand_failover_for_errors    = optional(list(string), [])
       enable_organization_runners             = optional(bool, false)
       enable_platform_ecr                     = optional(bool, false)
       enable_runner_binaries_syncer           = optional(bool, true)
@@ -70,6 +71,7 @@ variable "multi_runner_config" {
       scale_down_schedule_expression          = optional(string, "cron(*/5 * * * ? *)")
       scale_up_reserved_concurrent_executions = optional(number, 1)
       userdata_template                       = optional(string, null)
+      userdata_content                        = optional(string, null)
       enable_jit_config                       = optional(bool, null)
       enable_runner_detailed_monitoring       = optional(bool, false)
       enable_cloudwatch_agent                 = optional(bool, true)
@@ -78,6 +80,8 @@ variable "multi_runner_config" {
       userdata_post_install                   = optional(string, "")
       runner_ec2_tags                         = optional(map(string), {})
       runner_iam_role_managed_policy_arns     = optional(list(string), [])
+      vpc_id                                  = optional(string, null)
+      subnet_ids                              = optional(list(string), null)
       idle_config = optional(list(object({
         cron             = string
         timeZone         = string
@@ -91,25 +95,17 @@ variable "multi_runner_config" {
         log_stream_name  = string
       })), null)
       block_device_mappings = optional(list(object({
-        delete_on_termination = bool
-        device_name           = string
-        encrypted             = bool
-        iops                  = number
-        kms_key_id            = string
-        snapshot_id           = string
-        throughput            = number
+        delete_on_termination = optional(bool, true)
+        device_name           = optional(string, "/dev/xvda")
+        encrypted             = optional(bool, true)
+        iops                  = optional(number)
+        kms_key_id            = optional(string)
+        snapshot_id           = optional(string)
+        throughput            = optional(number)
         volume_size           = number
-        volume_type           = string
+        volume_type           = optional(string, "gp3")
         })), [{
-        delete_on_termination = true
-        device_name           = "/dev/xvda"
-        encrypted             = true
-        iops                  = null
-        kms_key_id            = null
-        snapshot_id           = null
-        throughput            = null
-        volume_size           = 30
-        volume_type           = "gp3"
+        volume_size = 30
       }])
       pool_config = optional(list(object({
         schedule_expression = string
@@ -146,6 +142,7 @@ variable "multi_runner_config" {
         ebs_optimized: "The EC2 EBS optimized configuration."
         enable_ephemeral_runners: "Enable ephemeral runners, runners will only be used once."
         enable_job_queued_check: "Enables JIT configuration for creating runners instead of registration token based registraton. JIT configuration will only be applied for ephemeral runners. By default JIT confiugration is enabled for ephemeral runners an can be disabled via this override. When running on GHES without support for JIT configuration this variable should be set to true for ephemeral runners."
+        enable_runner_on_demand_failover_for_errors "Enable on-demand failover. For example to fall back to on demand when no spot capacity is available the variable can be set to `InsufficientInstanceCapacity`. When not defined the default behavior is to retry later."
         enable_organization_runners: "Register runners to organization, instead of repo level"
         enable_platform_ecr: "Enable platform ECR repositories"
         enable_runner_binaries_syncer: "Option to disable the lambda to sync GitHub runner distribution, useful when using a pre-build AMI."
@@ -161,7 +158,7 @@ variable "multi_runner_config" {
         runner_additional_security_group_ids: "List of additional security groups IDs to apply to the runner. If added outside the multi_runner_config block, the additional security group(s) will be applied to all runner configs. If added inside the multi_runner_config, the additional security group(s) will be applied to the individual runner."
         runner_as_root: "Run the action runner under the root user. Variable `runner_run_as` will be ignored."
         runner_boot_time_in_minutes: "The minimum time for an EC2 runner to boot and register as a runner."
-        runner_extra_labels: "Extra (custom) labels for the runners (GitHub). Separate each label by a comma. Labels checks on the webhook can be enforced by setting `enable_workflow_job_labels_check`. GitHub read-only labels should not be provided."
+        runner_extra_labels: "Extra (custom) labels for the runners (GitHub). Separate each label by a comma. Labels checks on the webhook can be enforced by setting `multi_runner_config.matcherConfig.exactMatch`. GitHub read-only labels should not be provided."
         runner_group_name: "Name of the runner group."
         runner_name_prefix: "Prefix for the GitHub runner name."
         runner_run_as: "Run the GitHub actions agent as user."
@@ -177,6 +174,8 @@ variable "multi_runner_config" {
         userdata_post_install: "Script to be ran after the GitHub Actions runner is installed on the EC2 instances"
         runner_ec2_tags: "Map of tags that will be added to the launch template instance tag specifications."
         runner_iam_role_managed_policy_arns: "Attach AWS or customer-managed IAM policies (by ARN) to the runner IAM role"
+        vpc_id: "The VPC for security groups of the action runners. If not set uses the value of `var.vpc_id`."
+        subnet_ids: "List of subnets in which the action runners will be launched, the subnets needs to be subnets in the `vpc_id`. If not set, uses the value of `var.subnet_ids`."
         idle_config: "List of time period that can be defined as cron expression to keep a minimum amount of runners active instead of scaling down to 0. By defining this list you can ensure that in time periods that match the cron expression within 5 seconds a runner is kept idle."
         runner_log_files: "(optional) Replaces the module default cloudwatch log config. See https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-Agent-Configuration-File-Details.html for details."
         block_device_mappings: "The EC2 instance block device configuration. Takes the following keys: `device_name`, `delete_on_termination`, `volume_type`, `volume_size`, `encrypted`, `iops`, `throughput`, `kms_key_id`, `snapshot_id`."
@@ -193,10 +192,22 @@ variable "multi_runner_config" {
   EOT
 }
 
+variable "scale_up_lambda_memory_size" {
+  description = "Memory size limit in MB for scale_up lambda."
+  type        = number
+  default     = 512
+}
+
 variable "runners_scale_up_lambda_timeout" {
   description = "Time out for the scale up lambda in seconds."
   type        = number
   default     = 30
+}
+
+variable "scale_down_lambda_memory_size" {
+  description = "Memory size limit in MB for scale down."
+  type        = number
+  default     = 512
 }
 
 variable "runners_scale_down_lambda_timeout" {
@@ -209,6 +220,12 @@ variable "webhook_lambda_zip" {
   description = "File location of the webhook lambda zip file."
   type        = string
   default     = null
+}
+
+variable "webhook_lambda_memory_size" {
+  description = "Memory size limit in MB for webhook lambda."
+  type        = number
+  default     = 256
 }
 
 variable "webhook_lambda_timeout" {
@@ -295,7 +312,7 @@ variable "log_level" {
 variable "lambda_runtime" {
   description = "AWS Lambda runtime."
   type        = string
-  default     = "nodejs18.x"
+  default     = "nodejs20.x"
 }
 
 variable "lambda_architecture" {
@@ -341,6 +358,12 @@ variable "runner_binaries_s3_versioning" {
   default     = "Disabled"
 }
 
+variable "runner_binaries_syncer_memory_size" {
+  description = "Memory size limit in MB for binary syncer lambda."
+  type        = number
+  default     = 256
+}
+
 variable "runner_binaries_syncer_lambda_timeout" {
   description = "Time out of the binaries sync lambda in seconds."
   type        = number
@@ -359,10 +382,15 @@ variable "syncer_lambda_s3_object_version" {
   default     = null
 }
 
-variable "enable_event_rule_binaries_syncer" {
-  type        = bool
-  default     = true
+variable "state_event_rule_binaries_syncer" {
+  type        = string
   description = "Option to disable EventBridge Lambda trigger for the binary syncer, useful to stop automatic updates of binary distribution"
+  default     = "ENABLED"
+
+  validation {
+    condition     = contains(["ENABLED", "DISABLED", "ENABLED_WITH_ALL_CLOUDTRAIL_MANAGEMENT_EVENTS"], var.state_event_rule_binaries_syncer)
+    error_message = "`state_event_rule_binaries_syncer` value is not valid, valid values are: `ENABLED`, `DISABLED`, `ENABLED_WITH_ALL_CLOUDTRAIL_MANAGEMENT_EVENTS`."
+  }
 }
 
 variable "queue_encryption" {
@@ -541,6 +569,7 @@ variable "ssm_paths" {
     root    = optional(string, "github-action-runners")
     app     = optional(string, "app")
     runners = optional(string, "runners")
+    webhook = optional(string, "webhook")
   })
   default = {}
 }
@@ -567,12 +596,14 @@ variable "runners_ssm_housekeeper" {
 
   `schedule_expression`: is used to configure the schedule for the lambda.
   `enabled`: enable or disable the lambda trigger via the EventBridge.
+  `lambda_memory_size`: lambda memery size limit.
   `lambda_timeout`: timeout for the lambda in seconds.
   `config`: configuration for the lambda function. Token path will be read by default from the module.
   EOF
   type = object({
     schedule_expression = optional(string, "rate(1 day)")
     enabled             = optional(bool, true)
+    lambda_memory_size  = optional(number, 512)
     lambda_timeout      = optional(number, 60)
     config = object({
       tokenPath      = optional(string)
@@ -581,4 +612,37 @@ variable "runners_ssm_housekeeper" {
     })
   })
   default = { config = {} }
+}
+
+variable "metrics_namespace" {
+  description = "The namespace for the metrics created by the module. Merics will only be created if explicit enabled."
+  type        = string
+  default     = "GitHub Runners"
+}
+
+variable "instance_termination_watcher" {
+  description = <<-EOF
+    Configuration for the spot termination watcher lambda function. This feature is Beta, changes will not trigger a major release as long in beta.
+
+    `enable`: Enable or disable the spot termination watcher.
+    'enable_metrics': Enable metric for the lambda. If `spot_warning` is set to true, the lambda will emit a metric when it detects a spot termination warning.
+    `memory_size`: Memory size linit in MB of the lambda.
+    `s3_key`: S3 key for syncer lambda function. Required if using S3 bucket to specify lambdas.
+    `s3_object_version`: S3 object version for syncer lambda function. Useful if S3 versioning is enabled on source bucket.
+    `timeout`: Time out of the lambda in seconds.
+    `zip`: File location of the lambda zip file.
+  EOF
+
+  type = object({
+    enable = optional(bool, false)
+    enable_metric = optional(object({
+      spot_warning = optional(bool, false)
+    }))
+    memory_size       = optional(number, null)
+    s3_key            = optional(string, null)
+    s3_object_version = optional(string, null)
+    timeout           = optional(number, null)
+    zip               = optional(string, null)
+  })
+  default = {}
 }
