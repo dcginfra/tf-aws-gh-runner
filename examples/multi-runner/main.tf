@@ -2,28 +2,19 @@ data "aws_caller_identity" "current" {}
 
 locals {
   environment = var.environment != null ? var.environment : "multi-runner"
-  aws_region  = var.aws_region
+  aws_region  = "eu-west-1"
+  tags        = { Project = "multi-runner" }
 
   # Load runner configurations from Yaml files
-  multi_runner_config_files = {
-    for c in fileset("${path.module}/templates/runner-configs", "*.yaml") :
-
-    trimsuffix(c, ".yaml") => yamldecode(file("${path.module}/templates/runner-configs/${c}"))
-  }
   multi_runner_config = {
-    for k, v in local.multi_runner_config_files :
-
-    k => merge(
-      v,
-      {
-        runner_config = merge(
-          v.runner_config,
-          {
-            subnet_ids = lookup(v.runner_config, "subnet_ids", null) != null ? [module.base.vpc.private_subnets[0]] : null
-            vpc_id     = lookup(v.runner_config, "vpc_id", null) != null ? module.base.vpc.vpc_id : null
-          }
-        )
-      }
+    for c in fileset("${path.module}/templates/runner-configs", "*.yaml") : trimsuffix(c, ".yaml") =>
+    yamldecode(
+      templatefile(
+        "${path.module}/templates/runner-configs/${c}",
+        {
+          account_id = data.aws_caller_identity.current.account_id
+        }
+      )
     )
   }
 }
