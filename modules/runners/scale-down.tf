@@ -17,7 +17,7 @@ resource "aws_lambda_function" "scale_down" {
   runtime           = var.lambda_runtime
   timeout           = var.lambda_timeout_scale_down
   tags              = local.tags
-  memory_size       = 512
+  memory_size       = var.lambda_scale_down_memory_size
   architectures     = [var.lambda_architecture]
 
   environment {
@@ -32,7 +32,7 @@ resource "aws_lambda_function" "scale_down" {
       POWERTOOLS_LOGGER_LOG_EVENT              = var.log_level == "debug" ? "true" : "false"
       RUNNER_BOOT_TIME_IN_MINUTES              = var.runner_boot_time_in_minutes
       SCALE_DOWN_CONFIG                        = jsonencode(var.idle_config)
-      SERVICE_NAME                             = "runners-scale-down"
+      POWERTOOLS_SERVICE_NAME                  = "runners-scale-down"
       POWERTOOLS_TRACE_ENABLED                 = var.tracing_config.mode != null ? true : false
       POWERTOOLS_TRACER_CAPTURE_HTTPS_REQUESTS = var.tracing_config.capture_http_requests
       POWERTOOLS_TRACER_CAPTURE_ERROR          = var.tracing_config.capture_error
