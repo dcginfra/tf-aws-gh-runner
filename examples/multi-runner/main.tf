@@ -2,21 +2,6 @@ data "aws_caller_identity" "current" {}
 
 locals {
   environment = var.environment != null ? var.environment : "multi-runner"
-<<<<<<< HEAD
-  aws_region  = "eu-west-1"
-  tags        = { Project = "multi-runner" }
-
-  # Load runner configurations from Yaml files
-  multi_runner_config = {
-    for c in fileset("${path.module}/templates/runner-configs", "*.yaml") : trimsuffix(c, ".yaml") =>
-    yamldecode(
-      templatefile(
-        "${path.module}/templates/runner-configs/${c}",
-        {
-          account_id = data.aws_caller_identity.current.account_id
-        }
-      )
-=======
   aws_region  = var.aws_region
 
   # Load runner configurations from Yaml files
@@ -39,7 +24,6 @@ locals {
           }
         )
       }
->>>>>>> upstream/main
     )
   }
 }
