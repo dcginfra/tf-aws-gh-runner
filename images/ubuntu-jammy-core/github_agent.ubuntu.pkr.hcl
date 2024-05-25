@@ -9,7 +9,7 @@ packer {
 
 variable "runner_version" {
   description = "The version (no v prefix) of the runner software to install https://github.com/actions/runner/releases. The latest release will be fetched from GitHub if not provided."
-  default     = "2.309.0"
+  default     = "2.316.1"
 }
 
 variable "region" {
@@ -122,7 +122,7 @@ source "amazon-ebs" "githubrunner" {
 
   launch_block_device_mappings {
     device_name           = "/dev/sda1"
-    volume_size           = "${var.root_volume_size_gb}"
+    volume_size           = "16"
     volume_type           = "gp3"
     delete_on_termination = "${var.ebs_delete_on_termination}"
   }
@@ -140,7 +140,7 @@ build {
     inline = concat([
       "sudo cloud-init status --wait",
       "sudo apt-get -y update",
-      "sudo apt-get -y install ca-certificates curl gnupg lsb-release",
+      "sudo apt-get -y install ca-certificates curl gnupg lsb-release software-properties-common",
       "sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg",
       "echo deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null",
       "sudo apt-get -y update",
