@@ -11,6 +11,7 @@ sudo touch /etc/docker/daemon.json
 sudo sed -i '1s/{$/{\n  "data-root": "\/opt\/actions-runner\/_work\/docker",/' /etc/docker/daemon.json
 sudo systemctl start docker
 echo "Initialized NVMe Instance Store for Docker"
+sudo apt-get -y install software-properties-common
 
 cd /opt/actions-runner
 
